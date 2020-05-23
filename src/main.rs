@@ -1,21 +1,24 @@
 #![windows_subsystem = "windows"]
 #![allow(unused_imports)]
 
+mod assets;
+
 use cursive::views::{Dialog, TextView};
 use cursive::Cursive;
 use winapi::um::consoleapi::{AllocConsole, SetConsoleCtrlHandler};
-use winapi::um::winuser::{GetTopWindow, TranslateMessage, GetMessageW, LPMSG, GetMessageA, DispatchMessageA, DefWindowProcW, CreateWindowExW, LPWNDCLASSW, WNDCLASSW, RegisterClassW, CW_USEDEFAULT, WS_OVERLAPPEDWINDOW};
+use winapi::um::winuser::{GetTopWindow, TranslateMessage, GetMessageW, LPMSG, GetMessageA, DispatchMessageA, DefWindowProcW, CreateWindowExW, LPWNDCLASSW, WNDCLASSW, RegisterClassW, CW_USEDEFAULT, WS_OVERLAPPEDWINDOW, CreateIconFromResource};
 use winapi::_core::ptr::{null_mut};
 use winapi::shared::minwindef::{UINT, WPARAM, LPARAM, LRESULT, DWORD, BOOL, TRUE, FALSE, HINSTANCE, WORD, ATOM};
-use winapi::shared::windef::{HWND, HMENU};
+use winapi::shared::windef::{HWND, HMENU, HICON};
 use winapi::shared::guiddef::GUID;
 use winapi::um::wincon::{FreeConsole, CTRL_CLOSE_EVENT};
 use winapi::um::processthreadsapi::ExitThread;
-use winapi::um::shellapi::{NIM_ADD, NOTIFYICONDATAW, Shell_NotifyIconW, NIF_MESSAGE};
+use winapi::um::shellapi::{NIM_ADD, NOTIFYICONDATAW, Shell_NotifyIconW, NIF_MESSAGE, NIF_ICON};
 use winapi::shared::ntdef::{NULL, LPWSTR};
 use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::winnt::LPCWSTR;
+use assets::Assets;
 
 fn wide_encode(s: &str) -> Vec<u16> {
     use std::ffi::OsStr;
@@ -29,14 +32,14 @@ fn main() {
 
     unsafe {
         let hinstance = GetModuleHandleW( null_mut() );
-        if hinstance == NULL as HINSTANCE { panic!("Get hinstance failed")};
+        if hinstance == NULL as HINSTANCE { panic!("Get hinstance failed") };
 
         let mut window_class: WNDCLASSW =  std::mem::MaybeUninit::zeroed().assume_init();
         window_class.lpfnWndProc = Some(window_procedure);
         window_class.hInstance = hinstance;
         window_class.lpszClassName = wide_encode("TrayHolder").as_ptr();
         let atom = RegisterClassW(&window_class);
-        if atom == 0 { panic!("Register window class failed")};
+        if atom == 0 { panic!("Register window class failed") };
 
         let hwnd = CreateWindowExW(
             0,
@@ -51,10 +54,17 @@ fn main() {
             NULL as HMENU,
             hinstance,
             NULL);
-        if hwnd == NULL as HWND { panic!("Create window failed")};
+        if hwnd == NULL as HWND { panic!("Create window failed") };
+
+        let mut asset = Assets::get("icon-256.png").expect("Icon missing").into_owned();
+        let hicon = CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
+        if hicon == NULL as HICON { panic!("Failed to create icon") };
+
 
         let mut data: NOTIFYICONDATAW =  std::mem::MaybeUninit::zeroed().assume_init();
         data.hWnd = hwnd;
+        data.hIcon = hicon;
+        data.uFlags = NIF_ICON;
         if Shell_NotifyIconW(NIM_ADD, &mut data) != TRUE { panic!("Error creating tray icon") };
     }
 
