@@ -1,7 +1,7 @@
-use winapi::um::winuser::{DefWindowProcW, CreateWindowExW, WNDCLASSW, RegisterClassW, CW_USEDEFAULT, WS_OVERLAPPEDWINDOW, CreateIconFromResource, WM_APP};
-use winapi::shared::minwindef::{UINT, WPARAM, LPARAM, LRESULT, TRUE, HINSTANCE};
+use winapi::um::winuser::{DefWindowProcW, CreateWindowExW, WNDCLASSW, RegisterClassW, CW_USEDEFAULT, WS_OVERLAPPEDWINDOW, CreateIconFromResource, WM_APP, WM_LBUTTONUP, WM_RBUTTONUP};
+use winapi::shared::minwindef::{UINT, WPARAM, LPARAM, LRESULT, TRUE, HINSTANCE, LOWORD, DWORD};
 use winapi::shared::windef::{HWND, HMENU, HICON};
-use winapi::um::shellapi::{NIM_ADD, NOTIFYICONDATAW, Shell_NotifyIconW, NIF_MESSAGE, NIF_ICON, NIF_TIP};
+use winapi::um::shellapi::{NIM_ADD, NOTIFYICONDATAW, NOTIFYICONDATAW_u, Shell_NotifyIconW, NIF_MESSAGE, NIF_ICON, NIF_TIP, NOTIFYICON_VERSION_4, NIM_SETVERSION, NIN_SELECT};
 use winapi::shared::ntdef::{NULL};
 use winapi::um::libloaderapi::GetModuleHandleW;
 
@@ -58,7 +58,12 @@ pub fn create_shell_icon() {
 unsafe extern "system" fn window_procedure(hwnd: HWND, msg: UINT, w_param : WPARAM, l_param: LPARAM) -> LRESULT {
     match msg {
         CALLBACK_MSG => {
-            panic!("hello")
+            match LOWORD(l_param as DWORD) as u32 {
+                WM_LBUTTONUP | WM_RBUTTONUP  => {
+                    println!("Clicked");
+                }
+                _ => {}
+            }
         }
         _ => {}
     }

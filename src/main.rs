@@ -32,14 +32,14 @@ fn main() {
     // siv.run();
 
 
-    unsafe {
-        if AllocConsole() != TRUE {panic!("Error opening console")};
-        if SetConsoleCtrlHandler(Some(ctrl_handler), TRUE) != TRUE {panic!("Error setting handler")};
-    }
+    // unsafe {
+    //     if AllocConsole() != TRUE {panic!("Error opening console")};
+    //     if SetConsoleCtrlHandler(Some(ctrl_handler), TRUE) != TRUE {panic!("Error setting handler")};
+    // }
 
     unsafe {
+        let mut msg = std::mem::MaybeUninit::uninit().assume_init();
         loop {
-            let mut msg = std::mem::MaybeUninit::uninit().assume_init();
             let ret = GetMessageW(&mut msg, NULL as HWND, 0, 0);
             match ret {
                 -1 => { panic!("GetMessage failed"); }
