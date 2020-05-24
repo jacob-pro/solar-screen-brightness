@@ -1,9 +1,9 @@
 use winapi::um::consoleapi::AllocConsole;
 use winapi::um::wincon::{GetConsoleWindow, FreeConsole, SetConsoleTitleW};
+use winapi::um::winuser::*;
+use winapi::shared::minwindef::*;
+use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
-use winapi::um::winuser::{GetSystemMenu, EnableMenuItem, SC_CLOSE, MF_ENABLED, MF_GRAYED, ShowWindow, BringWindowToTop, SetForegroundWindow, SW_RESTORE, SW_HIDE, SendMessageW, WM_SETICON, ICON_BIG, CreateIconFromResource, ICON_SMALL};
-use winapi::shared::minwindef::{TRUE, FALSE, LPARAM, WPARAM};
-use winapi::shared::windef::{HWND, HICON};
 use crate::tui::run_tui;
 use crate::tray::MessageSender;
 use crate::wide::WideString;

@@ -9,6 +9,9 @@ edition = "2018"
 [dependencies]
 cursive = {default-features = false, features = ["crossterm-backend"], git = "https://github.com/gyscos/cursive"}
 rust-embed = "5.5.1"
+config = "0.10.1"
+serde = { version = "1.0.110", features = ["derive"] }
+
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["consoleapi", "windef", "processthreadsapi", "errhandlingapi", "winerror", "shellapi", "libloaderapi"] }

@@ -5,6 +5,7 @@ mod tray;
 mod wide;
 mod console;
 mod tui;
+mod config;
 
 use crate::tray::TrayApplication;
 

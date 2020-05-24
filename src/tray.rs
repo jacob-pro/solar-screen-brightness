@@ -3,12 +3,12 @@ use crate::wide::WideString;
 use crate::console::Console;
 use winapi::um::winnt::LPCWSTR;
 use winapi::um::errhandlingapi::{SetLastError, GetLastError};
-use winapi::um::winuser::{DefWindowProcW, CreateWindowExW, WNDCLASSW, RegisterClassW, CW_USEDEFAULT, WS_OVERLAPPEDWINDOW, CreateIconFromResource, WM_APP, WM_LBUTTONUP, WM_RBUTTONUP, GetMessageW, TranslateMessage, DispatchMessageW, SetWindowLongPtrW, GWLP_USERDATA, GetWindowLongPtrW, SendMessageW, PostQuitMessage};
-use winapi::shared::minwindef::{UINT, WPARAM, LPARAM, LRESULT, TRUE, HINSTANCE, LOWORD, DWORD};
-use winapi::shared::windef::{HWND, HMENU, HICON};
-use winapi::um::shellapi::{NIM_ADD, NOTIFYICONDATAW, Shell_NotifyIconW, NIF_MESSAGE, NIF_ICON, NIF_TIP, NIM_DELETE};
-use winapi::shared::ntdef::{NULL};
+use winapi::um::winuser::*;
+use winapi::um::shellapi::*;
 use winapi::um::libloaderapi::GetModuleHandleW;
+use winapi::shared::minwindef::*;
+use winapi::shared::windef::*;
+use winapi::shared::ntdef::{NULL};
 
 const CALLBACK_MSG: UINT = WM_APP + 1;
 const CLOSE_CONSOLE_MSG: UINT = WM_APP + 2;
