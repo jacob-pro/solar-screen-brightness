@@ -2,7 +2,7 @@
 
 mod assets;
 mod tray;
-mod str_ext;
+mod wide;
 mod console;
 mod tui;
 

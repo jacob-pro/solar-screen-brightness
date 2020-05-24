@@ -1,9 +1,9 @@
 
-pub trait StrExt {
+pub trait WideString {
     fn to_wide(&self) -> Vec<u16>;
 }
 
-impl StrExt for &str {
+impl WideString for &str {
     fn to_wide(&self) -> Vec<u16> {
         use std::ffi::OsStr;
         use std::os::windows::ffi::OsStrExt;

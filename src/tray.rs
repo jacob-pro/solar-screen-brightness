@@ -1,5 +1,5 @@
 use crate::assets::Assets;
-use crate::str_ext::StrExt;
+use crate::wide::WideString;
 use crate::console::Console;
 use winapi::um::winnt::LPCWSTR;
 use winapi::um::errhandlingapi::{SetLastError, GetLastError};
