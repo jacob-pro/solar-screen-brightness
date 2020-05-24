@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cursive = {version= "0.11", default-features = false, features = ["crossterm-backend"]}
+cursive = {default-features = false, features = ["crossterm-backend"], git = "https://github.com/gyscos/cursive"}
 rust-embed = "5.5.1"
 lazy_static = "1.4.0"
 

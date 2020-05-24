@@ -4,35 +4,25 @@
 extern crate lazy_static;
 
 mod assets;
-mod shell_icon;
+mod tray;
 mod str_ext;
 
-// use cursive::views::{Dialog, TextView};
-// use cursive::Cursive;
-use winapi::um::consoleapi::{AllocConsole, SetConsoleCtrlHandler};
-use winapi::shared::minwindef::{DWORD, BOOL, TRUE, FALSE};
+use cursive::views::{Dialog, TextView};
+use cursive::{Cursive, CursiveExt};
+use winapi::um::consoleapi::{AllocConsole};
+use winapi::shared::minwindef::{TRUE, FALSE};
 use winapi::shared::windef::HWND;
 use winapi::um::wincon::{FreeConsole, GetConsoleWindow};
-use crate::shell_icon::ShellIcon;
+use crate::tray::TrayApplication;
 use std::sync::Mutex;
 use winapi::shared::ntdef::NULL;
 use winapi::um::winuser::{GetSystemMenu, EnableMenuItem, SC_CLOSE, MF_ENABLED, MF_GRAYED, ShowWindow, SW_RESTORE, BringWindowToTop, SetForegroundWindow};
+use cursive::event::Event;
 
 
 fn main() {
-
-
-    let icon = ShellIcon::create();
-    icon.drive();
-
-}
-
-// When the console window is being closed
-unsafe extern "system" fn ctrl_handler(_dw_ctrl_type: DWORD) -> BOOL {
-    let mut visible = UI_VISIBLE.lock().unwrap();
-    FreeConsole();
-    *visible = false;
-    TRUE
+    let app = TrayApplication::create();
+    app.run();
 }
 
 lazy_static! {
@@ -55,26 +45,39 @@ pub fn display_ui() {
 
     unsafe {
         if AllocConsole() != TRUE {panic!("Error opening console")};
-        if SetConsoleCtrlHandler(Some(ctrl_handler), TRUE) != TRUE {panic!("Error setting handler")};
         let console_window = GetConsoleWindow();
         if console_window == NULL as HWND { panic!("Null console window") };
         let console_menu = GetSystemMenu(console_window, FALSE);
         EnableMenuItem(console_menu, SC_CLOSE as u32, MF_ENABLED | MF_GRAYED);
     }
 
-    // std::thread::spawn(|| {
-    //     // Creates the cursive root - required for every application.
-    //     let mut siv = Cursive::crossterm().unwrap();
-    //
-    //     // Creates a dialog with a single "Quit" button
-    //     siv.add_layer(Dialog::around(TextView::new("Hello Dialog!"))
-    //         .title("Cursive")
-    //         .button("Quit", |s| s.quit()));
-    //
-    //
-    //     // Starts the event loop.
-    //     siv.run();
-    // });
+    std::thread::spawn(|| {
+        // Creates the cursive root - required for every application.
+
+        let mut siv = Cursive::crossterm().unwrap();
+        siv.clear_global_callbacks(Event::CtrlChar('c'));
+        siv.clear_global_callbacks(Event::Exit);
+
+        // Creates a dialog with a single "Quit" button
+        siv.add_layer(Dialog::around(TextView::new("Hello Dialog!"))
+            .title("Cursive")
+            .button("Quit", |s| {
+                s.quit();
+            }));
+
+        // Starts the event loop.
+        siv.run();
+    });
 
     *visible = true;
+}
+
+pub fn close_console() {
+    let mut visible = UI_VISIBLE.lock().unwrap();
+    if *visible {
+        unsafe {
+            if FreeConsole() != TRUE { panic!("Error closing console") };
+        }
+    }
+    *visible = false;
 }

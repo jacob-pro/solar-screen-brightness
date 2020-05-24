@@ -12,11 +12,11 @@ use crate::display_ui;
 
 const CALLBACK_MSG: UINT = WM_APP + 1;
 
-pub struct ShellIcon (
+pub struct TrayApplication(
     NOTIFYICONDATAW
 );
 
-impl ShellIcon {
+impl TrayApplication {
 
     pub fn create() -> Self {
         unsafe {
@@ -59,11 +59,11 @@ impl ShellIcon {
             data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
             data.szTip.copy_from_slice(bytes);
             if Shell_NotifyIconW(NIM_ADD, &mut data) != TRUE { panic!("Error creating tray icon") };
-            ShellIcon(data)
+            TrayApplication(data)
         }
     }
 
-    pub fn drive(&self) {
+    pub fn run(&self) {
         unsafe {
             let mut msg = std::mem::MaybeUninit::uninit().assume_init();
             loop {
@@ -80,9 +80,13 @@ impl ShellIcon {
         }
     }
 
+    pub fn message(&self) {
+
+    }
+
 }
 
-impl Drop for ShellIcon {
+impl Drop for TrayApplication {
 
     fn drop(&mut self) {
         unsafe {
