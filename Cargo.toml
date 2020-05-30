@@ -19,3 +19,4 @@ winapi = { version = "0.3", features = ["consoleapi", "windef", "processthreadsa
 
 [build-dependencies]
 cmake = "0.1"
+bindgen = "0.53.1"
