@@ -17,9 +17,10 @@ validator_derive = "0.10"
 directories = "2.0"
 lazy_static = "1.4.0"
 toml = "0.5"
+geocoding = "0.2.0"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["consoleapi", "windef", "errhandlingapi", "winerror", "shellapi", "libloaderapi"] }
+winapi = { version = "0.3", features = ["consoleapi", "windef", "errhandlingapi", "winerror", "shellapi", "libloaderapi", "physicalmonitorenumerationapi", "highlevelmonitorconfigurationapi", "wingdi"] }
 
 [build-dependencies]
 cmake = "0.1"

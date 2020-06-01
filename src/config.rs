@@ -22,28 +22,30 @@ lazy_static! {
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
-pub struct Config {
+pub struct Location {
     #[validate(range(min = -90, max = 90))]
     latitude: f32,
     #[validate(range(min = -180, max = 180))]
     longitude: f32,
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct Config {
     #[validate(range(min = 0, max = 100))]
     brightness_day: f32,
     #[validate(range(min = 0, max = 100))]
     brightness_night: f32,
     #[validate(range(min = 0, max = 360))]
     transition_mins: u32,
-    #[validate(range(min = 0.01, max = 10))]
-    refresh_difference: f32,
+    location: Location,
 }
-
-
 
 impl Config {
 
     pub fn load() -> Result<Self, String> {
         let mut s = config::Config::new();
-        s.merge(File::from(CONFIG_FILE.as_path()).format(FileFormat::Toml)).map_err(|e| e.to_string())?;
+        s.merge(File::from(CONFIG_FILE.as_path()).format(FileFormat::Toml))
+            .map_err(|e| e.to_string())?;
         let res: Config = s.try_into().map_err(|e| e.to_string())?;
         res.validate().map_err(|e: ValidationErrors| e.to_string())?;
         Ok(res)
@@ -58,12 +60,10 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            latitude: 0.0,
-            longitude: 0.0,
             brightness_day: 80.0,
             brightness_night: 50.0,
             transition_mins: 40,
-            refresh_difference: 0.25
+            location: Location{ latitude: 0.0, longitude: 0.0 },
         }
     }
 }

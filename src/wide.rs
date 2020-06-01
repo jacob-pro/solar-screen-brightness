@@ -1,5 +1,5 @@
-use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
+use std::ffi::{OsStr, OsString};
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::iter::once;
 
 pub trait WideString {
@@ -11,3 +11,10 @@ impl WideString for &str {
         OsStr::new(self).encode_wide().chain(once(0)).collect()
     }
 }
+
+pub fn wide_to_str(s: &[u16]) -> Result<String, OsString> {
+    let end = s.iter().position(|&x| x == 0).unwrap();
+    let truncated = &s[0..end];
+    OsString::from_wide(truncated).into_string()
+}
+
