@@ -12,11 +12,16 @@ cursive = {default-features = false, features = ["crossterm-backend"], git = "ht
 rust-embed = "5.5.1"
 config = "0.10.1"
 serde = { version = "1.0.110", features = ["derive"] }
-
+validator = "0.10"
+validator_derive = "0.10"
+directories = "2.0"
+lazy_static = "1.4.0"
+toml = "0.5"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["consoleapi", "windef", "processthreadsapi", "errhandlingapi", "winerror", "shellapi", "libloaderapi"] }
+winapi = { version = "0.3", features = ["consoleapi", "windef", "errhandlingapi", "winerror", "shellapi", "libloaderapi"] }
 
 [build-dependencies]
 cmake = "0.1"
 bindgen = "0.53.1"
+
