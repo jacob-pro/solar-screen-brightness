@@ -11,6 +11,8 @@ use winapi::um::highlevelmonitorconfigurationapi::SetMonitorBrightness;
 use winapi::um::winnt::LPCWSTR;
 use winapi::um::wingdi::DISPLAY_DEVICEW;
 use crate::wide::wide_to_str;
+use crate::ssc::{ssc_around_time, SSCAroundTimeResult, ssc_calculate_brightness, SSCBrightnessParams};
+use libc::time;
 
 pub enum BrightnessLoopMessage {
     NewConfig(Config),
@@ -22,13 +24,27 @@ pub fn start_loop(config: Config) -> SyncSender<BrightnessLoopMessage> {
     thread::spawn(move || {
         let mut config = config;
         loop {
+
+            let brightness_result = unsafe {
+                let mut sunrise_sunset_result: SSCAroundTimeResult = std::mem::MaybeUninit::zeroed().assume_init();
+                ssc_around_time(config.location.latitude.into(),
+                                config.location.longitude.into(),
+                                time(std::ptr::null_mut()),
+                                &mut sunrise_sunset_result);
+                let params = SSCBrightnessParams {
+                    brightness_day: config.brightness_day,
+                    brightness_night: config.brightness_night,
+                    transition_mins: config.transition_mins,
+                };
+                ssc_calculate_brightness(&params, &sunrise_sunset_result)
+            };
+
             // Update brightness
             for m in load_monitors() {
-                m.set_brightness(100);
+                m.set_brightness(brightness_result.brightness);
             }
 
-            let five_seconds = Duration::new(2, 0);
-            match rx.recv_timeout(five_seconds) {
+            match rx.recv_timeout(Duration::new(brightness_result.expiry_seconds as u64, 0)) {
                 Ok(msg) => {
                     match msg {
                         BrightnessLoopMessage::NewConfig(new_config) => {config = new_config}
@@ -42,14 +58,13 @@ pub fn start_loop(config: Config) -> SyncSender<BrightnessLoopMessage> {
     tx
 }
 
-fn load_monitors() -> Vec<Monitor> {
+pub fn load_monitors() -> Vec<Monitor> {
     unsafe extern "system" fn enum_monitors(arg1: HMONITOR, _arg2: HDC, _arg3: LPRECT, arg4: LPARAM) -> BOOL {
         let monitors: &mut Vec<HMONITOR> = &mut *(arg4 as *mut Vec<HMONITOR>);
         monitors.push(arg1);
         return TRUE
     }
     unsafe {
-
         let mut hmonitors = Vec::<HMONITOR>::new();
         if EnumDisplayMonitors(NULL as HDC,
                                NULL as LPCRECT,
@@ -61,7 +76,7 @@ fn load_monitors() -> Vec<Monitor> {
 }
 
 #[allow(dead_code)]
-struct Monitor {
+pub struct Monitor {
     physical_monitors: Vec<PHYSICAL_MONITOR>,
     device_name: String,
     device_string: String,
@@ -97,10 +112,10 @@ impl Monitor {
         }
     }
 
-    fn set_brightness(&self, brightness: DWORD) {
+    fn set_brightness(&self, brightness: u32) {
         unsafe {
             for p in &self.physical_monitors {
-                if SetMonitorBrightness(p.hPhysicalMonitor, brightness) == FALSE {
+                if SetMonitorBrightness(p.hPhysicalMonitor, brightness as DWORD) == FALSE {
                     panic!("SetMonitorBrightness failed")};
             }
         }

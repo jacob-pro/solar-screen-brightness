@@ -24,20 +24,20 @@ lazy_static! {
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct Location {
     #[validate(range(min = -90, max = 90))]
-    latitude: f32,
+    pub latitude: f32,
     #[validate(range(min = -180, max = 180))]
-    longitude: f32,
+    pub longitude: f32,
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct Config {
-    #[validate(range(min = 0, max = 100))]
-    brightness_day: f32,
-    #[validate(range(min = 0, max = 100))]
-    brightness_night: f32,
-    #[validate(range(min = 0, max = 360))]
-    transition_mins: u32,
-    location: Location,
+    #[validate(range(max = 100))]
+    pub brightness_day: u32,
+    #[validate(range(max = 100))]
+    pub brightness_night: u32,
+    #[validate(range(max = 360))]
+    pub transition_mins: u32,
+    pub location: Location,
 }
 
 impl Config {
@@ -60,8 +60,8 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            brightness_day: 80.0,
-            brightness_night: 50.0,
+            brightness_day: 100,
+            brightness_night: 60,
             transition_mins: 40,
             location: Location{ latitude: 0.0, longitude: 0.0 },
         }
