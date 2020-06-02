@@ -21,7 +21,7 @@ lazy_static! {
     };
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
+#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct Location {
     #[validate(range(min = -90, max = 90))]
     pub latitude: f32,
@@ -29,7 +29,7 @@ pub struct Location {
     pub longitude: f32,
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
+#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct Config {
     #[validate(range(max = 100))]
     pub brightness_day: u32,

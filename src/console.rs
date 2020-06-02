@@ -5,15 +5,16 @@ use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
 use crate::tui::run_tui;
-use crate::tray::MessageSender;
+use crate::tray::TrayMessageSender;
 use crate::wide::WideString;
 use crate::assets::Assets;
+use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef};
 
 pub struct Console {}
 
 impl Console {
 
-    pub fn create(tray: MessageSender) -> Self {
+    pub fn create(tray: TrayMessageSender, brightness: BrightnessMessageSender, status: BrightnessStatusRef) -> Self {
         unsafe {
             if AllocConsole() != TRUE {panic!("Error opening console")};
             let console_window = GetConsoleWindow();
@@ -29,7 +30,7 @@ impl Console {
             SendMessageW(console_window, WM_SETICON, ICON_SMALL as WPARAM, hicon as LPARAM);
         }
         std::thread::spawn(move || {
-            run_tui(tray);
+            run_tui(tray, brightness, status);
         });
         Console{}
     }

@@ -21,10 +21,17 @@ use crate::tray::TrayApplication;
 use crate::config::Config;
 use crate::brightness::{start_loop, BrightnessLoopMessage};
 
-fn main() {
+fn main() -> Result<(), &'static str> {
+    check_for_duplicate()?;
     let config = Config::load().unwrap_or(Config::default());
-    let brightness_loop = start_loop(config);
-    let app = TrayApplication::create();
+    let (sender, status) = start_loop(config);
+    let app = TrayApplication::create(sender.clone(), status);
     app.run();
-    brightness_loop.send(BrightnessLoopMessage::Exit).unwrap();
+    sender.send(BrightnessLoopMessage::Exit).unwrap();
+    Ok(())
+}
+
+fn check_for_duplicate() -> Result<(), &'static str> {
+    //Err("Already running")
+    Ok(())
 }

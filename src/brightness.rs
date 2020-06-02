@@ -1,7 +1,7 @@
 use crate::config::Config;
 use std::sync::mpsc::{SyncSender, sync_channel, RecvTimeoutError};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use winapi::um::winuser::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFOEXW, LPMONITORINFO, EnumDisplayDevicesW};
 use winapi::shared::minwindef::{BOOL, LPARAM, TRUE, FALSE, DWORD};
 use winapi::shared::windef::{LPRECT, LPCRECT, HDC, HMONITOR};
@@ -13,14 +13,32 @@ use winapi::um::wingdi::DISPLAY_DEVICEW;
 use crate::wide::wide_to_str;
 use crate::ssc::{ssc_around_time, SSCAroundTimeResult, ssc_calculate_brightness, SSCBrightnessParams};
 use libc::time;
+use std::sync::{Arc, RwLock};
+
+pub type BrightnessMessageSender = SyncSender<BrightnessLoopMessage>;
+pub type BrightnessStatusRef = Arc<RwLock<BrightnessStatus>>;
+
+pub struct BrightnessStatus {
+    brightness: Option<u32>,
+    expiry: Option<Instant>,
+    config: Config,
+}
 
 pub enum BrightnessLoopMessage {
     NewConfig(Config),
     Exit,
+    Pause,
+    Resume,
 }
 
-pub fn start_loop(config: Config) -> SyncSender<BrightnessLoopMessage> {
+pub fn start_loop(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
     let (tx, rx) = sync_channel::<BrightnessLoopMessage>(0);
+    let status = Arc::new(RwLock::new(BrightnessStatus {
+        brightness: None,
+        expiry: None,
+        config: config.clone(),
+    }));
+    let status_mv = status.clone();
     thread::spawn(move || {
         let mut config = config;
         loop {
@@ -38,24 +56,41 @@ pub fn start_loop(config: Config) -> SyncSender<BrightnessLoopMessage> {
                 };
                 ssc_calculate_brightness(&params, &sunrise_sunset_result)
             };
+            let expiry = Instant::now() + Duration::new(brightness_result.expiry_seconds as u64, 0);
 
             // Update brightness
             for m in load_monitors() {
                 m.set_brightness(brightness_result.brightness);
             }
 
-            match rx.recv_timeout(Duration::new(brightness_result.expiry_seconds as u64, 0)) {
+            // Update status
+            let mut status = status_mv.write().unwrap();
+            status.config = config.clone();
+            status.brightness = Some(brightness_result.brightness);
+            status.expiry = Some(expiry);
+            drop(status);
+
+            match rx.recv_timeout(expiry - Instant::now()) {
                 Ok(msg) => {
                     match msg {
                         BrightnessLoopMessage::NewConfig(new_config) => {config = new_config}
                         BrightnessLoopMessage::Exit => { break }
+                        BrightnessLoopMessage::Pause => {
+                            loop {
+                                match rx.recv().unwrap() {
+                                    BrightnessLoopMessage::Resume => { break }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        BrightnessLoopMessage::Resume => {}
                     }
                 }
                 Err(e) => { if e != RecvTimeoutError::Timeout { panic!(e)}}
             };
         }
     });
-    tx
+    (tx, status)
 }
 
 pub fn load_monitors() -> Vec<Monitor> {

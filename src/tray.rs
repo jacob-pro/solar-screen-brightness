@@ -9,6 +9,7 @@ use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
+use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef};
 
 const CALLBACK_MSG: UINT = WM_APP + 1;
 const CLOSE_CONSOLE_MSG: UINT = WM_APP + 2;
@@ -20,7 +21,7 @@ pub enum TrayMessage {
     ExitApplication,
 }
 
-pub type MessageSender = Box<dyn Fn(TrayMessage) + Send + Sync>;
+pub type TrayMessageSender = Box<dyn Fn(TrayMessage) + Send + Sync>;
 
 impl TrayMessage {
 
@@ -39,6 +40,8 @@ impl TrayMessage {
 struct WindowData {
     icon: NOTIFYICONDATAW,
     console: Option<Console>,
+    sender: BrightnessMessageSender,
+    status: BrightnessStatusRef,
 }
 
 pub struct TrayApplication {
@@ -47,7 +50,7 @@ pub struct TrayApplication {
 
 impl TrayApplication {
 
-    pub fn create() -> Self {
+    pub fn create(sender: BrightnessMessageSender, status: BrightnessStatusRef) -> Self {
         unsafe {
             let hinstance = GetModuleHandleW( NULL as LPCWSTR );
             if hinstance == NULL as HINSTANCE { panic!("Get hinstance failed") }
@@ -92,7 +95,9 @@ impl TrayApplication {
             let mut app = TrayApplication {
                 window_data: Box::new(WindowData {
                     icon: data,
-                    console: None
+                    console: None,
+                    sender,
+                    status,
                 })
             };
             SetLastError(0);
@@ -147,7 +152,9 @@ unsafe extern "system" fn tray_window_proc(hwnd: HWND, msg: UINT, w_param : WPAR
                         Some(c) => { c.show(); }
                         None => {
                             app.console = Some(Console::create(
-                                Box::new(move |msg| { msg.send(hwnd as HWND) })
+                                Box::new(move |msg| { msg.send(hwnd as HWND) }),
+                                app.sender.clone(),
+                                app.status.clone()
                             ));
                         }
                     }

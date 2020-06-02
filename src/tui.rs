@@ -1,10 +1,11 @@
 use cursive::views::{Dialog, TextView};
 use cursive::{Cursive, CursiveExt};
 use cursive::event::Event;
-use crate::tray::{MessageSender, TrayMessage};
+use crate::tray::{TrayMessageSender, TrayMessage};
 use std::rc::Rc;
+use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef};
 
-pub fn run_tui(tray: MessageSender) {
+pub fn run_tui(tray: TrayMessageSender, brightness: BrightnessMessageSender, status: BrightnessStatusRef) {
     let tray = Rc::new(tray);
     let mut siv = Cursive::crossterm().unwrap();
     siv.clear_global_callbacks(Event::CtrlChar('c'));
