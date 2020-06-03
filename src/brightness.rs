@@ -13,16 +13,28 @@ use winapi::um::wingdi::DISPLAY_DEVICEW;
 use crate::wide::wide_to_str;
 use crate::ssc::{ssc_around_time, SSCAroundTimeResult, ssc_calculate_brightness, SSCBrightnessParams};
 use libc::time;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Weak};
 
 pub type BrightnessMessageSender = SyncSender<BrightnessLoopMessage>;
 pub type BrightnessStatusRef = Arc<RwLock<BrightnessStatus>>;
 
+pub trait BrightnessStatusDelegate {
+    fn on_toggle(&self, running: bool);
+}
+
 pub struct BrightnessStatus {
-    pub brightness: Option<u32>,
-    pub expiry: Option<Instant>,
-    pub config: Config,
-    pub running: bool,
+    brightness: Option<u32>,
+    expiry: Option<Instant>,
+    config: Config,
+    running: bool,
+    pub delegate: Weak<Box<dyn BrightnessStatusDelegate + Send + Sync>>,
+}
+
+impl BrightnessStatus {
+    pub fn brightness(&self) -> &Option<u32> { &self.brightness }
+    pub fn expiry(&self) -> &Option<Instant> { &self.expiry }
+    pub fn config(&self) -> &Config { &self.config }
+    pub fn running(&self) -> &bool { &self.running }
 }
 
 pub enum BrightnessLoopMessage {
@@ -39,6 +51,7 @@ pub fn start_loop(config: Config) -> (BrightnessMessageSender, BrightnessStatusR
         expiry: None,
         config: config.clone(),
         running: true,
+        delegate: Weak::new()
     }));
     let status_mv = status.clone();
     thread::spawn(move || {
@@ -78,14 +91,20 @@ pub fn start_loop(config: Config) -> (BrightnessMessageSender, BrightnessStatusR
                         BrightnessLoopMessage::NewConfig(new_config) => {config = new_config}
                         BrightnessLoopMessage::Exit => { break }
                         BrightnessLoopMessage::Pause => {
-                            status_mv.write().unwrap().running = false;
+                            let mut status = status_mv.write().unwrap();
+                            status.running = false;
+                            status.delegate.upgrade().map(|x| x.on_toggle(false));
+                            drop(status);
                             loop {
                                 match rx.recv().unwrap() {
                                     BrightnessLoopMessage::Resume => {
-                                        status_mv.write().unwrap().running = true;
+                                        let mut status = status_mv.write().unwrap();
+                                        status.running = true;
+                                        status.delegate.upgrade().map(|x| x.on_toggle(true));
+                                        drop(status);
                                         break
                                     }
-                                    _ => {}
+                                    _ => {}  // Ignore repeat Pause messages
                                 }
                             }
                         }
@@ -158,8 +177,7 @@ impl Monitor {
     fn set_brightness(&self, brightness: u32) {
         unsafe {
             for p in &self.physical_monitors {
-                if SetMonitorBrightness(p.hPhysicalMonitor, brightness as DWORD) == FALSE {
-                    panic!("SetMonitorBrightness failed")};
+                SetMonitorBrightness(p.hPhysicalMonitor, brightness as DWORD);
             }
         }
     }

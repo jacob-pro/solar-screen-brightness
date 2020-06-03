@@ -9,7 +9,7 @@ use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
-use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef};
+use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessLoopMessage};
 
 extern "system" {
     pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL;
@@ -46,6 +46,7 @@ struct WindowData {
     console: Option<Console>,
     sender: BrightnessMessageSender,
     status: BrightnessStatusRef,
+    prev_running: bool,
 }
 
 pub struct TrayApplication {
@@ -104,6 +105,7 @@ impl TrayApplication {
                     console: None,
                     sender,
                     status,
+                    prev_running: false,
                 })
             };
             SetLastError(0);
@@ -118,7 +120,7 @@ impl TrayApplication {
         unsafe {
             let mut msg = std::mem::MaybeUninit::uninit().assume_init();
             loop {
-                let ret = GetMessageW(&mut msg, self.window_data.icon.hWnd, 0, 0);
+                let ret = GetMessageW(&mut msg, NULL as HWND, 0, 0);
                 match ret {
                     -1 => { panic!("GetMessage failed"); }
                     0 => { break }
@@ -141,10 +143,10 @@ impl Drop for WindowData {
     }
 }
 
-unsafe fn get_user_data(hwnd: &HWND) -> &mut WindowData {
+unsafe fn get_user_data(hwnd: &HWND) -> Option<&mut WindowData> {
     let user_data = GetWindowLongPtrW(*hwnd, GWLP_USERDATA);
-    if user_data == 0 { panic!("Get GWLP_USERDATA failed") }
-    &mut *(user_data as *mut WindowData)
+    if user_data == 0 { return None }
+    Some(&mut *(user_data as *mut WindowData))
 }
 
 unsafe extern "system" fn tray_window_proc(hwnd: HWND, msg: UINT, w_param : WPARAM, l_param: LPARAM) -> LRESULT {
@@ -152,7 +154,7 @@ unsafe extern "system" fn tray_window_proc(hwnd: HWND, msg: UINT, w_param : WPAR
         CALLBACK_MSG => {
             match LOWORD(l_param as DWORD) as u32 {
                 WM_LBUTTONUP | WM_RBUTTONUP  => {
-                    let app = get_user_data(&hwnd);
+                    let app = get_user_data(&hwnd).unwrap();
                     let hwnd = app.icon.hWnd as usize;
                     match &app.console {
                         Some(c) => { c.show(); }
@@ -169,11 +171,27 @@ unsafe extern "system" fn tray_window_proc(hwnd: HWND, msg: UINT, w_param : WPAR
             }
         }
         CLOSE_CONSOLE_MSG => {
-            let app = get_user_data(&hwnd);
+            let app = get_user_data(&hwnd).unwrap();
             app.console.as_ref().unwrap().hide();
         }
         EXIT_APPLICATION_MSG => {
             PostQuitMessage(0);
+        },
+        WM_WTSSESSION_CHANGE => {
+            let app = get_user_data(&hwnd).unwrap();
+            match w_param {
+                WTS_SESSION_LOCK => {
+                    app.prev_running = *app.status.read().unwrap().running();
+                    app.sender.send(BrightnessLoopMessage::Pause).unwrap();
+                },
+                WTS_SESSION_UNLOCK => {
+                    if app.prev_running {
+                        app.sender.send(BrightnessLoopMessage::Resume).unwrap();
+                    }
+                },
+                _ => {}
+            }
+
         }
         _ => {}
     }
