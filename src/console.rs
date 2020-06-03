@@ -4,7 +4,7 @@ use winapi::um::winuser::*;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
-use crate::tui::run_tui;
+use crate::tui::run;
 use crate::tray::TrayMessageSender;
 use crate::wide::WideString;
 use crate::assets::Assets;
@@ -30,7 +30,7 @@ impl Console {
             SendMessageW(console_window, WM_SETICON, ICON_SMALL as WPARAM, hicon as LPARAM);
         }
         std::thread::spawn(move || {
-            run_tui(tray, brightness, status);
+            run(tray, brightness, status);
         });
         Console{}
     }

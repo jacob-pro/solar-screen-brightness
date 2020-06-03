@@ -19,9 +19,10 @@ pub type BrightnessMessageSender = SyncSender<BrightnessLoopMessage>;
 pub type BrightnessStatusRef = Arc<RwLock<BrightnessStatus>>;
 
 pub struct BrightnessStatus {
-    brightness: Option<u32>,
-    expiry: Option<Instant>,
-    config: Config,
+    pub brightness: Option<u32>,
+    pub expiry: Option<Instant>,
+    pub config: Config,
+    pub running: bool,
 }
 
 pub enum BrightnessLoopMessage {
@@ -37,6 +38,7 @@ pub fn start_loop(config: Config) -> (BrightnessMessageSender, BrightnessStatusR
         brightness: None,
         expiry: None,
         config: config.clone(),
+        running: true,
     }));
     let status_mv = status.clone();
     thread::spawn(move || {
@@ -76,9 +78,13 @@ pub fn start_loop(config: Config) -> (BrightnessMessageSender, BrightnessStatusR
                         BrightnessLoopMessage::NewConfig(new_config) => {config = new_config}
                         BrightnessLoopMessage::Exit => { break }
                         BrightnessLoopMessage::Pause => {
+                            status_mv.write().unwrap().running = false;
                             loop {
                                 match rx.recv().unwrap() {
-                                    BrightnessLoopMessage::Resume => { break }
+                                    BrightnessLoopMessage::Resume => {
+                                        status_mv.write().unwrap().running = true;
+                                        break
+                                    }
                                     _ => {}
                                 }
                             }
@@ -112,6 +118,7 @@ pub fn load_monitors() -> Vec<Monitor> {
 
 #[allow(dead_code)]
 pub struct Monitor {
+    handle: HMONITOR,
     physical_monitors: Vec<PHYSICAL_MONITOR>,
     device_name: String,
     device_string: String,
@@ -141,6 +148,7 @@ impl Monitor {
             panic!("EnumDisplayDevicesW failed")};
 
         Monitor {
+            handle,
             physical_monitors: physical,
             device_name: wide_to_str(&info.szDevice).unwrap(),
             device_string: wide_to_str(&device.DeviceString).unwrap(),

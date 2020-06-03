@@ -4,7 +4,7 @@ use validator::{Validate, ValidationErrors};
 use directories::BaseDirs;
 use lazy_static::lazy_static;
 use std::path::PathBuf;
-use std::fs;
+use std::{fs, io};
 
 lazy_static! {
     static ref CONFIG_DIR: PathBuf = {
@@ -51,9 +51,9 @@ impl Config {
         Ok(res)
     }
 
-    pub fn save(&self) {
+    pub fn save(&self) -> io::Result<()> {
         let toml = toml::to_string(self).unwrap();
-        fs::write(CONFIG_FILE.as_path(), toml).unwrap();
+        fs::write(CONFIG_FILE.as_path(), toml)
     }
 
 }
