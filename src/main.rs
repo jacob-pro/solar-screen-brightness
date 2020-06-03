@@ -17,9 +17,8 @@ mod tui;
 mod config;
 mod brightness;
 
-use crate::tray::TrayApplication;
 use crate::config::Config;
-use crate::brightness::{start_loop, BrightnessLoopMessage};
+use crate::brightness::BrightnessLoopMessage;
 use winapi::_core::panic::PanicInfo;
 use winapi::um::winuser::{MessageBoxW, MB_OK, MB_ICONSTOP};
 use crate::wide::WideString;
@@ -31,9 +30,8 @@ fn main() {
     std::panic::set_hook(Box::new(handle_panic));
     if already_running() { panic!("Already running") };
     let config = Config::load().unwrap_or(Config::default());
-    let (sender, status) = start_loop(config);
-    let app = TrayApplication::create(sender.clone(), status);
-    app.run();
+    let (sender, status) = brightness::run(config);
+    tray::run(sender.clone(), status);
     sender.send(BrightnessLoopMessage::Exit).unwrap();
 }
 

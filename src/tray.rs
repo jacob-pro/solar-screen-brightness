@@ -49,97 +49,76 @@ struct WindowData {
     prev_running: bool,
 }
 
-pub struct TrayApplication {
-    window_data: Box<WindowData>
-}
+// Blocking call, runs on this thread
+pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
+    unsafe {
+        let hinstance = GetModuleHandleW( NULL as LPCWSTR );
+        if hinstance == NULL as HINSTANCE { panic!("Get hinstance failed") }
 
-impl TrayApplication {
+        let mut window_class: WNDCLASSW =  std::mem::MaybeUninit::zeroed().assume_init();
+        window_class.lpfnWndProc = Some(tray_window_proc);
+        window_class.hInstance = hinstance;
+        window_class.lpszClassName = "TrayHolder".to_wide().as_ptr();
+        let atom = RegisterClassW(&window_class);
+        if atom == 0 { panic!("Register window class failed") }
 
-    pub fn create(sender: BrightnessMessageSender, status: BrightnessStatusRef) -> Self {
-        unsafe {
-            let hinstance = GetModuleHandleW( NULL as LPCWSTR );
-            if hinstance == NULL as HINSTANCE { panic!("Get hinstance failed") }
+        let hwnd = CreateWindowExW(
+            0,
+            atom as *const u16,
+            "tray".to_wide().as_ptr(),
+            WS_OVERLAPPEDWINDOW,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            NULL as HWND,
+            NULL as HMENU,
+            hinstance,
+            NULL);
+        if hwnd == NULL as HWND { panic!("Create window failed") }
 
-            let mut window_class: WNDCLASSW =  std::mem::MaybeUninit::zeroed().assume_init();
-            window_class.lpfnWndProc = Some(tray_window_proc);
-            window_class.hInstance = hinstance;
-            window_class.lpszClassName = "TrayHolder".to_wide().as_ptr();
-            let atom = RegisterClassW(&window_class);
-            if atom == 0 { panic!("Register window class failed") }
+        if WTSRegisterSessionNotification(hwnd, 0) != TRUE { panic!("Failed to WTSRegisterSessionNotification")}
 
-            let hwnd = CreateWindowExW(
-                0,
-                atom as *const u16,
-                "tray".to_wide().as_ptr(),
-                WS_OVERLAPPEDWINDOW,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                CW_USEDEFAULT,
-                NULL as HWND,
-                NULL as HMENU,
-                hinstance,
-                NULL);
-            if hwnd == NULL as HWND { panic!("Create window failed") }
+        let mut asset = Assets::get("icon-256.png").expect("Icon missing").into_owned();
+        let hicon = CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
+        if hicon == NULL as HICON { panic!("Failed to create icon") }
 
-            if WTSRegisterSessionNotification(hwnd, 0) != TRUE { panic!("Failed to WTSRegisterSessionNotification")}
+        let mut data: NOTIFYICONDATAW =  std::mem::MaybeUninit::zeroed().assume_init();
+        let mut name = "Solar Screen Brightness".to_wide();
+        name.resize(data.szTip.len(), 0);
+        let bytes = &name[..data.szTip.len()];
+        data.hWnd = hwnd;
+        data.hIcon = hicon;
+        data.uCallbackMessage = CALLBACK_MSG;
+        data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+        data.szTip.copy_from_slice(bytes);
+        if Shell_NotifyIconW(NIM_ADD, &mut data) != TRUE { panic!("Error creating tray icon") }
 
-            let mut asset = Assets::get("icon-256.png").expect("Icon missing").into_owned();
-            let hicon = CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
-            if hicon == NULL as HICON { panic!("Failed to create icon") }
+        let mut window_data = Box::new(WindowData {
+            icon: data,
+            console: None,
+            sender,
+            status,
+            prev_running: false,
+        });
+        SetLastError(0);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, window_data.as_mut() as *mut _ as isize);
+        if GetLastError() != 0 { panic!("Failed to set GWLP_USERDATA") }
 
-            let mut data: NOTIFYICONDATAW =  std::mem::MaybeUninit::zeroed().assume_init();
-            let mut name = "Solar Screen Brightness".to_wide();
-            name.resize(data.szTip.len(), 0);
-            let bytes = &name[..data.szTip.len()];
-            data.hWnd = hwnd;
-            data.hIcon = hicon;
-            data.uCallbackMessage = CALLBACK_MSG;
-            data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-            data.szTip.copy_from_slice(bytes);
-            if Shell_NotifyIconW(NIM_ADD, &mut data) != TRUE { panic!("Error creating tray icon") }
-
-            let mut app = TrayApplication {
-                window_data: Box::new(WindowData {
-                    icon: data,
-                    console: None,
-                    sender,
-                    status,
-                    prev_running: false,
-                })
-            };
-            SetLastError(0);
-            SetWindowLongPtrW(hwnd, GWLP_USERDATA, app.window_data.as_mut() as *mut _ as isize);
-            if GetLastError() != 0 { panic!("Failed to set GWLP_USERDATA") }
-
-            app
-        }
-    }
-
-    pub fn run(&self) {
-        unsafe {
-            let mut msg = std::mem::MaybeUninit::uninit().assume_init();
-            loop {
-                let ret = GetMessageW(&mut msg, NULL as HWND, 0, 0);
-                match ret {
-                    -1 => { panic!("GetMessage failed"); }
-                    0 => { break }
-                    _ => {
-                        TranslateMessage(&mut msg);
-                        DispatchMessageW(&mut msg);
-                    }
+        let mut msg = std::mem::MaybeUninit::uninit().assume_init();
+        loop {
+            let ret = GetMessageW(&mut msg, NULL as HWND, 0, 0);
+            match ret {
+                -1 => { panic!("GetMessage failed"); }
+                0 => { break }
+                _ => {
+                    TranslateMessage(&mut msg);
+                    DispatchMessageW(&mut msg);
                 }
             }
         }
-    }
-}
 
-impl Drop for WindowData {
-
-    fn drop(&mut self) {
-        unsafe {
-            if Shell_NotifyIconW(NIM_DELETE, &mut self.icon) != TRUE { panic!("Error removing tray icon") };
-        }
+        if Shell_NotifyIconW(NIM_DELETE, &mut window_data.icon) != TRUE { panic!("Error removing tray icon") };
     }
 }
 

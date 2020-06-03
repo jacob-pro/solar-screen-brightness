@@ -44,7 +44,8 @@ pub enum BrightnessLoopMessage {
     Resume,
 }
 
-pub fn start_loop(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
+// Launches brightness on background thread
+pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
     let (tx, rx) = sync_channel::<BrightnessLoopMessage>(0);
     let status = Arc::new(RwLock::new(BrightnessStatus {
         brightness: None,
