@@ -47,14 +47,14 @@ pub enum BrightnessLoopMessage {
 // Launches brightness on background thread
 pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
     let (tx, rx) = sync_channel::<BrightnessLoopMessage>(0);
-    let status = Arc::new(RwLock::new(BrightnessStatus {
+    let status2 = Arc::new(RwLock::new(BrightnessStatus {
         brightness: None,
         expiry: None,
         config: config.clone(),
         running: true,
         delegate: Weak::new()
     }));
-    let status_mv = status.clone();
+    let status = status2.clone();
     thread::spawn(move || {
         let mut config = config;
         loop {
@@ -80,7 +80,7 @@ pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
             }
 
             // Update status
-            let mut status = status_mv.write().unwrap();
+            let mut status = status.write().unwrap();
             status.config = config.clone();
             status.brightness = Some(brightness_result.brightness);
             status.expiry = Some(expiry);
@@ -92,14 +92,14 @@ pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
                         BrightnessLoopMessage::NewConfig(new_config) => {config = new_config}
                         BrightnessLoopMessage::Exit => { break }
                         BrightnessLoopMessage::Pause => {
-                            let mut status = status_mv.write().unwrap();
+                            let mut status = status.write().unwrap();
                             status.running = false;
                             status.delegate.upgrade().map(|x| x.on_toggle(false));
                             drop(status);
                             loop {
                                 match rx.recv().unwrap() {
                                     BrightnessLoopMessage::Resume => {
-                                        let mut status = status_mv.write().unwrap();
+                                        let mut status = status.write().unwrap();
                                         status.running = true;
                                         status.delegate.upgrade().map(|x| x.on_toggle(true));
                                         drop(status);
@@ -116,7 +116,7 @@ pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
             };
         }
     });
-    (tx, status)
+    (tx, status2)
 }
 
 pub fn load_monitors() -> Vec<Monitor> {
@@ -131,7 +131,7 @@ pub fn load_monitors() -> Vec<Monitor> {
                                NULL as LPCRECT,
                                Some(enum_monitors),
                                &mut hmonitors as *mut _ as isize
-        ) == FALSE { panic!("EnumDisplayMonitors failed ")};
+        ) == FALSE { panic!("EnumDisplayMonitors failed")};
         hmonitors.into_iter().map(|x| Monitor::new(x)).collect()
     }
 }
@@ -184,4 +184,3 @@ impl Monitor {
     }
 
 }
-

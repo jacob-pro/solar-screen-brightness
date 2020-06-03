@@ -25,7 +25,6 @@ use crate::wide::WideString;
 use winapi::shared::windef::HWND;
 use winapi::shared::ntdef::NULL;
 
-
 fn main() {
     std::panic::set_hook(Box::new(handle_panic));
     if already_running() { panic!("Already running") };
@@ -39,6 +38,7 @@ fn already_running() -> bool {
     false
 }
 
+// The default print to the console is not very helpful for a Win32 application
 fn handle_panic(info: &PanicInfo) {
     unsafe {
         let title = "Fatal Error".to_wide();

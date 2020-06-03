@@ -16,4 +16,7 @@ Currently windows only, however the algorithm is in portable C, the user interfa
 - Clicking the tray icon opens a console UI to configure the application
 - Only one instance may be started per user
 - Configuration file persisted to AppData
-- Is disabled/enabled on user switch events so that it may only be enabled once per computer
+- Is automatically disabled/enabled on user lock/unlock events
+
+#### Future Features
+- Needs support for different brightness settings per monitor number / device

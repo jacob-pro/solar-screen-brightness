@@ -17,4 +17,3 @@ pub fn wide_to_str(s: &[u16]) -> Result<String, OsString> {
     let truncated = &s[0..end];
     OsString::from_wide(truncated).into_string()
 }
-
