@@ -7,7 +7,7 @@ use crate::tray::TrayMessage;
 
 #[derive(IntoEnumIterator)]
 pub enum MainMenuChoice {
-    ShowStatus = 0,
+    ShowStatus,
     EditConfig,
     SaveConfig,
     CloseConsole,

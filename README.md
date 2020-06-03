@@ -10,3 +10,11 @@ This changes the monitor screen brightness via the DDC/CI monitor APIs, whereas 
 
 #### Platform Support
 Currently windows only, however the algorithm is in portable C, the user interface uses `crossterm`, to make fully cross platform just requires replacing some Win32 API calls with equivalents. 
+
+#### Features
+- An icon appears in the tray when running
+- Clicking the tray icon opens a console UI to configure the application
+- Only one instance may be started per user
+- Configuration can be saved to AppData
+- Is disabled/enabled on user switch events
+

@@ -11,6 +11,10 @@ use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
 use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef};
 
+extern "system" {
+    pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL;
+}
+
 const CALLBACK_MSG: UINT = WM_APP + 1;
 const CLOSE_CONSOLE_MSG: UINT = WM_APP + 2;
 const EXIT_APPLICATION_MSG: UINT = WM_APP + 3;
@@ -76,6 +80,8 @@ impl TrayApplication {
                 hinstance,
                 NULL);
             if hwnd == NULL as HWND { panic!("Create window failed") }
+
+            if WTSRegisterSessionNotification(hwnd, 0) != TRUE { panic!("Failed to WTSRegisterSessionNotification")}
 
             let mut asset = Assets::get("icon-256.png").expect("Icon missing").into_owned();
             let hicon = CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
