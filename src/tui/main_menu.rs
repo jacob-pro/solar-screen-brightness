@@ -5,7 +5,7 @@ use enum_iterator::IntoEnumIterator;
 use crate::tui::UserData;
 use crate::tray::TrayMessage;
 use cursive::traits::Nameable;
-use crate::brightness::BrightnessLoopMessage;
+use crate::brightness::BrightnessMessage;
 
 
 #[derive(IntoEnumIterator)]
@@ -63,9 +63,9 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
         MainMenuChoice::ToggleRunning => {
             let running = *ud.status.read().unwrap().running();
             if running {
-                ud.brightness.send(BrightnessLoopMessage::Pause).unwrap();
+                ud.brightness.send(BrightnessMessage::Pause).unwrap();
             } else {
-                ud.brightness.send(BrightnessLoopMessage::Resume).unwrap();
+                ud.brightness.send(BrightnessMessage::Resume).unwrap();
             }
         }
         MainMenuChoice::SaveConfig => {

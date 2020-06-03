@@ -9,7 +9,7 @@ use winapi::um::libloaderapi::GetModuleHandleW;
 use winapi::shared::minwindef::*;
 use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
-use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessLoopMessage};
+use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessMessage};
 
 extern "system" {
     pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL;
@@ -161,11 +161,11 @@ unsafe extern "system" fn tray_window_proc(hwnd: HWND, msg: UINT, w_param : WPAR
             match w_param {
                 WTS_SESSION_LOCK => {
                     app.prev_running = *app.status.read().unwrap().running();
-                    app.sender.send(BrightnessLoopMessage::Pause).unwrap();
+                    app.sender.send(BrightnessMessage::Pause).unwrap();
                 },
                 WTS_SESSION_UNLOCK => {
                     if app.prev_running {
-                        app.sender.send(BrightnessLoopMessage::Resume).unwrap();
+                        app.sender.send(BrightnessMessage::Resume).unwrap();
                     }
                 },
                 _ => {}

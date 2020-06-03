@@ -16,9 +16,10 @@ mod console;
 mod tui;
 mod config;
 mod brightness;
+mod monitor;
 
 use crate::config::Config;
-use crate::brightness::BrightnessLoopMessage;
+use crate::brightness::BrightnessMessage;
 use winapi::_core::panic::PanicInfo;
 use winapi::um::winuser::{MessageBoxW, MB_OK, MB_ICONSTOP};
 use crate::wide::WideString;
@@ -31,7 +32,7 @@ fn main() {
     let config = Config::load().unwrap_or(Config::default());
     let (sender, status) = brightness::run(config);
     tray::run(sender.clone(), status);
-    sender.send(BrightnessLoopMessage::Exit).unwrap();
+    sender.send(BrightnessMessage::Exit).unwrap();
 }
 
 fn already_running() -> bool {
