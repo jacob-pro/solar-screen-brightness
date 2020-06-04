@@ -2,7 +2,7 @@ use winapi::um::winuser::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFOEXW, 
 use winapi::shared::minwindef::{BOOL, LPARAM, TRUE, FALSE, DWORD};
 use winapi::shared::windef::{LPRECT, LPCRECT, HDC, HMONITOR};
 use winapi::shared::ntdef::NULL;
-use winapi::um::physicalmonitorenumerationapi::{GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR};
+use winapi::um::physicalmonitorenumerationapi::{GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR, DestroyPhysicalMonitors};
 use winapi::um::highlevelmonitorconfigurationapi::SetMonitorBrightness;
 use winapi::um::winnt::LPCWSTR;
 use winapi::um::wingdi::DISPLAY_DEVICEW;
@@ -66,6 +66,14 @@ impl Monitor {
             for p in &self.physical_monitors {
                 SetMonitorBrightness(p.hPhysicalMonitor, brightness as DWORD);
             }
+        }
+    }
+}
+
+impl Drop for Monitor {
+    fn drop(&mut self) {
+        unsafe {
+            assert_eq!(TRUE, DestroyPhysicalMonitors(self.physical_monitors.len() as u32, self.physical_monitors.as_mut_ptr()));
         }
     }
 }
