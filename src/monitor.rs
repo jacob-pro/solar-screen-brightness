@@ -17,11 +17,11 @@ pub fn load_monitors() -> Vec<Monitor> {
     }
     unsafe {
         let mut hmonitors = Vec::<HMONITOR>::new();
-        if EnumDisplayMonitors(NULL as HDC,
-                               NULL as LPCRECT,
-                               Some(enum_monitors),
-                               &mut hmonitors as *mut _ as isize
-        ) == FALSE { panic!("EnumDisplayMonitors failed")};
+        assert_ne!(EnumDisplayMonitors(NULL as HDC,
+                                       NULL as LPCRECT,
+                                       Some(enum_monitors),
+                                       &mut hmonitors as *mut _ as isize
+        ), FALSE);
         hmonitors.into_iter().map(|x| Monitor::new(x)).collect()
     }
 }
@@ -39,23 +39,19 @@ impl Monitor {
     unsafe fn new(handle: HMONITOR) -> Self {
 
         let mut count: DWORD = 0;
-        if GetNumberOfPhysicalMonitorsFromHMONITOR(handle, &mut count) != TRUE {
-            panic!("GetNumberOfPhysicalMonitorsFromHMONITOR failed")};
+        assert_eq!(GetNumberOfPhysicalMonitorsFromHMONITOR(handle, &mut count), TRUE);
         let mut physical = Vec::with_capacity(count as usize);
-        if GetPhysicalMonitorsFromHMONITOR(handle, count, physical.as_mut_ptr()) != TRUE {
-            panic!("GetPhysicalMonitorsFromHMONITOR failed")};
+        assert_eq!(GetPhysicalMonitorsFromHMONITOR(handle, count, physical.as_mut_ptr()), TRUE);
         physical.set_len(count as usize);
 
         let mut info: MONITORINFOEXW = std::mem::MaybeUninit::zeroed().assume_init();
         info.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
         let pointer = &mut info as *mut _;
-        if GetMonitorInfoW(handle, pointer as LPMONITORINFO) == 0 { panic!("GetMonitorInfoW failed")};
-
+        assert_ne!(GetMonitorInfoW(handle, pointer as LPMONITORINFO), 0);
 
         let mut device: DISPLAY_DEVICEW = std::mem::MaybeUninit::zeroed().assume_init();
         device.cb = std::mem::size_of::<DISPLAY_DEVICEW>() as u32;
-        if EnumDisplayDevicesW(&info.szDevice as LPCWSTR, 0, &mut device, 0) == 0 {
-            panic!("EnumDisplayDevicesW failed")};
+        assert_ne!(EnumDisplayDevicesW(&info.szDevice as LPCWSTR, 0, &mut device, 0), 0);
 
         Monitor {
             handle,

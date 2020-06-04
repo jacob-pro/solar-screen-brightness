@@ -2,7 +2,7 @@ use crate::config::Config;
 use std::sync::mpsc::{SyncSender, sync_channel, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
-use crate::ssc::{ssc_around_time, SSCAroundTimeResult, ssc_calculate_brightness, SSCBrightnessParams};
+use crate::ssc::{ssc_around_time, SSCAroundTimeResult, ssc_calculate_brightness, SSCBrightnessParams, SSCStatus_SSCStatusSuccess};
 use libc::time;
 use std::sync::{Arc, RwLock, Weak};
 use crate::monitor::load_monitors;
@@ -50,13 +50,13 @@ pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
     thread::spawn(move || {
         let mut config = config;
         loop {
-
             let brightness_result = unsafe {
                 let mut sunrise_sunset_result: SSCAroundTimeResult = std::mem::MaybeUninit::zeroed().assume_init();
-                ssc_around_time(config.location.latitude.into(),
+                let status = ssc_around_time(config.location.latitude.into(),
                                 config.location.longitude.into(),
                                 time(std::ptr::null_mut()),
                                 &mut sunrise_sunset_result);
+                assert_eq!(status, SSCStatus_SSCStatusSuccess);
                 let params = SSCBrightnessParams {
                     brightness_day: config.brightness_day,
                     brightness_night: config.brightness_night,

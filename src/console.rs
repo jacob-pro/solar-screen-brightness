@@ -16,16 +16,16 @@ impl Console {
 
     pub fn create(tray: TrayMessageSender, brightness: BrightnessMessageSender, status: BrightnessStatusRef) -> Self {
         unsafe {
-            if AllocConsole() != TRUE {panic!("Error opening console")};
+            assert_eq!(AllocConsole(), TRUE);
             let console_window = GetConsoleWindow();
-            if console_window == NULL as HWND { panic!("Null console window") };
+            assert_ne!(console_window, NULL as HWND);
             let console_menu = GetSystemMenu(console_window, FALSE);
             EnableMenuItem(console_menu, SC_CLOSE as u32, MF_ENABLED | MF_GRAYED);
             SetConsoleTitleW("Solar Screen Brightness".to_wide().as_ptr());
 
             let mut asset = Assets::get("icon-256.png").expect("Icon missing").into_owned();
             let hicon = CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
-            if hicon == NULL as HICON { panic!("Failed to create icon") }
+            assert_ne!(hicon, NULL as HICON);
             SendMessageW(console_window, WM_SETICON, ICON_BIG as WPARAM, hicon as LPARAM);
             SendMessageW(console_window, WM_SETICON, ICON_SMALL as WPARAM, hicon as LPARAM);
         }
@@ -38,7 +38,7 @@ impl Console {
     pub fn show(&self) {
         unsafe {
             let console_window = GetConsoleWindow();
-            if console_window == NULL as HWND { panic!("Null console window") };
+            assert_ne!(console_window, NULL as HWND);
             ShowWindow(console_window, SW_RESTORE);
             BringWindowToTop(console_window);
             SetForegroundWindow(console_window);
@@ -48,7 +48,7 @@ impl Console {
     pub fn hide(&self) {
         unsafe {
             let console_window = GetConsoleWindow();
-            if console_window == NULL as HWND { panic!("Null console window") };
+            assert_ne!(console_window, NULL as HWND);
             ShowWindow(console_window, SW_HIDE);
         }
     }
@@ -57,7 +57,7 @@ impl Console {
 impl Drop for Console {
     fn drop(&mut self) {
         unsafe {
-            if FreeConsole() != TRUE { panic!("Error closing console") };
+            assert_eq!(FreeConsole(), TRUE);
         }
     }
 }
