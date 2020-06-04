@@ -11,10 +11,6 @@ use winapi::shared::windef::*;
 use winapi::shared::ntdef::{NULL};
 use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessMessage};
 
-extern "system" {
-    pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL;
-}
-
 const CALLBACK_MSG: UINT = WM_APP + 1;
 const CLOSE_CONSOLE_MSG: UINT = WM_APP + 2;
 const EXIT_APPLICATION_MSG: UINT = WM_APP + 3;
@@ -77,6 +73,7 @@ pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
             NULL);
         if hwnd == NULL as HWND { panic!("Create window failed") }
 
+        extern "system" { pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL; }
         if WTSRegisterSessionNotification(hwnd, 0) != TRUE { panic!("Failed to WTSRegisterSessionNotification")}
 
         let mut asset = Assets::get("icon-256.png").expect("Icon missing").into_owned();

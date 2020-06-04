@@ -20,11 +20,16 @@ mod monitor;
 
 use crate::config::Config;
 use crate::brightness::BrightnessMessage;
-use winapi::_core::panic::PanicInfo;
+use std::panic::PanicInfo;
 use winapi::um::winuser::{MessageBoxW, MB_OK, MB_ICONSTOP};
-use crate::wide::WideString;
 use winapi::shared::windef::HWND;
 use winapi::shared::ntdef::NULL;
+use winapi::um::synchapi::CreateMutexW;
+use winapi::um::minwinbase::LPSECURITY_ATTRIBUTES;
+use winapi::shared::minwindef::TRUE;
+use crate::wide::WideString;
+use winapi::um::errhandlingapi::{GetLastError, SetLastError};
+use winapi::shared::winerror::ERROR_ALREADY_EXISTS;
 
 fn main() {
     std::panic::set_hook(Box::new(handle_panic));
@@ -36,10 +41,15 @@ fn main() {
 }
 
 fn already_running() -> bool {
-    false
+    unsafe {
+        let name = "solar-screen-brightness".to_wide();
+        SetLastError(0);
+        CreateMutexW(NULL as LPSECURITY_ATTRIBUTES, TRUE,  name.as_ptr());
+        return GetLastError() == ERROR_ALREADY_EXISTS
+    }
 }
 
-// The default print to the console is not very helpful for a Win32 application
+// The console is being used by Crossterm so any output won't be visible
 fn handle_panic(info: &PanicInfo) {
     unsafe {
         let title = "Fatal Error".to_wide();

@@ -22,7 +22,7 @@ libc = "0.2"
 enum-iterator = "0.6.0"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { git = "https://github.com/retep998/winapi-rs", branch = "0.3", features = ["wtsapi32", "consoleapi", "windef", "errhandlingapi", "winerror", "shellapi", "libloaderapi", "physicalmonitorenumerationapi", "highlevelmonitorconfigurationapi", "wingdi", "winuser"] }
+winapi = { git = "https://github.com/retep998/winapi-rs", branch = "0.3", features = ["wtsapi32", "consoleapi", "windef", "errhandlingapi", "winerror", "shellapi", "libloaderapi", "physicalmonitorenumerationapi", "highlevelmonitorconfigurationapi", "wingdi", "winuser", "synchapi"] }
 
 [build-dependencies]
 cmake = "0.1"
