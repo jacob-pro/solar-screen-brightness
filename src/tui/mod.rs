@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 mod main_menu;
 mod status;
+mod edit_config;
 
 pub struct UserData {
     tray: TrayMessageSender,

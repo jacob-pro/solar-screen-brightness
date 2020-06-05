@@ -1,11 +1,12 @@
 use cursive::Cursive;
-use cursive::views::{SelectView, ScrollView, NamedView, Dialog, HideableView};
+use cursive::views::{SelectView, ScrollView, NamedView, Dialog, HideableView, TextView};
 use cursive::align::HAlign;
 use enum_iterator::IntoEnumIterator;
 use crate::tui::UserData;
 use crate::tray::TrayMessage;
 use cursive::traits::Nameable;
 use crate::brightness::BrightnessMessage;
+use std::io::Error;
 
 const MAIN_VIEW: &str = "MainMenu";
 const MAIN_SELECT: &str = "MainSelect";
@@ -80,9 +81,12 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             }
         }
         MainMenuChoice::SaveConfig => {
-            let status = ud.status.read().unwrap();
-            let running = status.config().clone();
-            running.save();
+            let config = ud.status.read().unwrap().config().clone();
+            let msg = match config.save() {
+                Ok(_) => {"Successfully Saved".to_owned()},
+                Err(e) => {e.to_string()},
+            };
+            cursive.add_layer(Dialog::around(TextView::new(msg)).dismiss_button("OK"));
         },
         MainMenuChoice::CloseConsole => {
             &(ud.tray)(TrayMessage::CloseConsole);
