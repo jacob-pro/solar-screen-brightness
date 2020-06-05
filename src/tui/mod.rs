@@ -2,7 +2,7 @@ use cursive::views::{Dialog};
 use cursive::{Cursive, CursiveExt, CbSink};
 use cursive::event::Event;
 use crate::tray::TrayMessageSender;
-use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessStatusDelegate};
+use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessStatusDelegate, LastUpdate};
 use std::sync::Arc;
 
 mod main_menu;
@@ -15,10 +15,14 @@ pub struct UserData {
 
 struct Delegate(CbSink);
 impl BrightnessStatusDelegate for Delegate {
-    fn on_toggle(&self, running: bool) {
+    fn running_change(&self, running: &bool) {
+        let running = *running;
         self.0.send(Box::new(move |s| {
             main_menu::running_change(s, running);
         })).unwrap();
+    }
+    fn update_change(&self, update: &LastUpdate) {
+        let update = update.clone();
     }
 }
 
