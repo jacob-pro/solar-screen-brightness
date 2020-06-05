@@ -1,33 +1,35 @@
-use cursive::views::{Dialog, TextView};
+use cursive::views::{Dialog, TextView, LinearLayout, Button};
 use cursive::Cursive;
+use cursive::traits::Nameable;
 use crate::brightness::LastUpdate;
 use chrono::{DateTime, Local};
 
-const STATUS_PAGE: &str = "STATUS_PAGE";
+const STATUS_TEXT: &str = "STATUS_TEXT";
 
-pub fn create<F>(completion: F, update: LastUpdate) -> Dialog
-where F: FnMut()
+pub fn create<F>(completion: F) -> Dialog
+where F: 'static + Fn(&mut Cursive)
 {
     Dialog::around(
-        TextView::new(update_to_string(&update))
+        LinearLayout::vertical()
+            .child(TextView::new("null").with_name(STATUS_TEXT))
+            .child(Button::new("Ok", completion))
     ).title("Current Status")
 }
 
-pub fn update_to_string(update: &LastUpdate) -> String {
-    let mut s = String::new();
-    s.push_str(format!("Current Brightness: {}\n", update.brightness).as_str());
-    s.push_str(format!("Calculated at: {}\n", DateTime::<Local>::from(update.time).format("%H:%M:%S")).as_str());
-    s.push_str(format!("Expires at: {}\n", DateTime::<Local>::from(update.expiry).format("%H:%M:%S")).as_str());
-    if update.visible {
-        s.push_str(format!("Sunrise was at: {}\n", DateTime::<Local>::from(update.sunrise).format("%H:%M:%S")).as_str());
-        s.push_str(format!("Sunset is at: {}\n", DateTime::<Local>::from(update.sunset).format("%H:%M:%S")).as_str());
-    } else {
-        s.push_str(format!("Sunset was at: {}\n", DateTime::<Local>::from(update.sunset).format("%H:%M:%S")).as_str());
-        s.push_str(format!("Sunrise is at: {}\n", DateTime::<Local>::from(update.sunrise).format("%H:%M:%S")).as_str());
-    }
-    s
-}
+const DATE_FORMAT: &str = "%H:%M %P";
 
 pub fn status_update(cursive: &mut Cursive, update: LastUpdate) {
-
+    let mut s = String::new();
+    s.push_str(format!("Brightness: {}%\n", update.brightness).as_str());
+    s.push_str(format!("Changes at: {}\n", DateTime::<Local>::from(update.expiry).format(DATE_FORMAT)).as_str());
+    if update.visible {
+        s.push_str(format!("Sunrise was at: {}\n", DateTime::<Local>::from(update.sunrise).format(DATE_FORMAT)).as_str());
+        s.push_str(format!("Sunset is at: {}\n", DateTime::<Local>::from(update.sunset).format(DATE_FORMAT)).as_str());
+    } else {
+        s.push_str(format!("Sunset was at: {}\n", DateTime::<Local>::from(update.sunset).format(DATE_FORMAT)).as_str());
+        s.push_str(format!("Sunrise is at: {}\n", DateTime::<Local>::from(update.sunrise).format(DATE_FORMAT)).as_str());
+    }
+    cursive.call_on_name(STATUS_TEXT, |x: &mut TextView| {
+        x.set_content(s);
+    });
 }

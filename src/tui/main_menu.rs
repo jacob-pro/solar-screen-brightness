@@ -4,7 +4,7 @@ use cursive::align::HAlign;
 use enum_iterator::IntoEnumIterator;
 use crate::tui::UserData;
 use crate::tray::TrayMessage;
-use cursive::traits::{Nameable, Finder};
+use cursive::traits::Nameable;
 use crate::brightness::BrightnessMessage;
 
 const MAIN_VIEW: &str = "MainMenu";
@@ -61,10 +61,12 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
         MainMenuChoice::ShowStatus => {
             let update = ud.status.read().unwrap().last_update().clone().unwrap();
             cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.hide(); }).unwrap();
-            let view = super::status::create(|| {
-                cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.unhide(); }).unwrap()
-            }, update);
+            let view = super::status::create(|x| {
+                x.pop_layer();
+                x.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.unhide(); }).unwrap();
+            });
             cursive.add_layer(view);
+            super::status::status_update(cursive, update);
         },
         MainMenuChoice::EditConfig => {
 
