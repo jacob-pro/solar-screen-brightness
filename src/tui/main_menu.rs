@@ -1,12 +1,14 @@
 use cursive::Cursive;
-use cursive::views::{SelectView, ScrollView, NamedView};
+use cursive::views::{SelectView, ScrollView, NamedView, Dialog, HideableView};
 use cursive::align::HAlign;
 use enum_iterator::IntoEnumIterator;
 use crate::tui::UserData;
 use crate::tray::TrayMessage;
-use cursive::traits::Nameable;
+use cursive::traits::{Nameable, Finder};
 use crate::brightness::BrightnessMessage;
 
+const MAIN_VIEW: &str = "MainMenu";
+const MAIN_SELECT: &str = "MainSelect";
 
 #[derive(IntoEnumIterator)]
 pub enum MainMenuChoice {
@@ -31,7 +33,7 @@ impl MainMenuChoice {
     }
 }
 
-pub fn create() -> ScrollView<NamedView<SelectView<MainMenuChoice>>> {
+pub fn create() -> NamedView<HideableView<Dialog>> {
     let mut select = SelectView::new()
         .h_align(HAlign::Left)
         .autojump();
@@ -39,11 +41,13 @@ pub fn create() -> ScrollView<NamedView<SelectView<MainMenuChoice>>> {
         select.add_item(format!("{} {}", idx + 1, item.title()), item);
     }
     select.set_on_submit(on_submit);
-    ScrollView::new(select.with_name("MainSelect"))
+    HideableView::new(Dialog::around(
+        ScrollView::new(select.with_name(MAIN_SELECT))
+    ).title("Solar Screen Brightness")).with_name(MAIN_VIEW)
 }
 
 pub fn running_change(s: &mut Cursive, running: bool) {
-    s.call_on_name("MainSelect", |view: &mut SelectView<MainMenuChoice>| {
+    s.call_on_name(MAIN_SELECT, |view: &mut SelectView<MainMenuChoice>| {
         let idx = MainMenuChoice::ToggleRunning as u8 as usize;
         let label = format!("{} {} dynamic brightness", idx + 1, if running { "Disable" } else { "Enable"});
         view.insert_item(idx, label, MainMenuChoice::ToggleRunning);
@@ -55,7 +59,12 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
     let ud = cursive.user_data::<UserData>().unwrap();
     match choice {
         MainMenuChoice::ShowStatus => {
-
+            let update = ud.status.read().unwrap().last_update().clone().unwrap();
+            cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.hide(); }).unwrap();
+            let view = super::status::create(|| {
+                cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.unhide(); }).unwrap()
+            }, update);
+            cursive.add_layer(view);
         },
         MainMenuChoice::EditConfig => {
 

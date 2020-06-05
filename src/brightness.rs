@@ -16,12 +16,12 @@ pub trait BrightnessStatusDelegate {
 
 #[derive(Clone)]
 pub struct LastUpdate {
-    brightness: u32,
-    expiry: SystemTime,
-    time: SystemTime,
-    sunrise: SystemTime,
-    sunset: SystemTime,
-    visible: bool,
+    pub brightness: u32,
+    pub expiry: SystemTime,
+    pub time: SystemTime,
+    pub sunrise: SystemTime,
+    pub sunset: SystemTime,
+    pub visible: bool,
 }
 
 pub struct BrightnessStatus {

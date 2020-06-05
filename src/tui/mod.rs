@@ -1,4 +1,3 @@
-use cursive::views::{Dialog};
 use cursive::{Cursive, CursiveExt, CbSink};
 use cursive::event::Event;
 use crate::tray::TrayMessageSender;
@@ -6,6 +5,7 @@ use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, Brightness
 use std::sync::Arc;
 
 mod main_menu;
+mod status;
 
 pub struct UserData {
     tray: TrayMessageSender,
@@ -23,6 +23,9 @@ impl BrightnessStatusDelegate for Delegate {
     }
     fn update_change(&self, update: &LastUpdate) {
         let update = update.clone();
+        self.0.send(Box::new(move |s| {
+            status::status_update(s, update);
+        })).unwrap();
     }
 }
 
@@ -38,8 +41,7 @@ pub fn run(tray: TrayMessageSender, brightness: BrightnessMessageSender, status:
         status: status.clone()
     });
 
-    let menu = main_menu::create();
-    siv.add_layer(Dialog::around(menu).title("Solar Screen Brightness"));
+    siv.add_layer(main_menu::create());
     main_menu::running_change(&mut siv, *status.read().unwrap().running());
 
     let delegate: Arc<Box<dyn BrightnessStatusDelegate + Send + Sync>> = Arc::new(Box::new(Delegate(siv.cb_sink().clone())));
