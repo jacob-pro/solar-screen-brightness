@@ -9,6 +9,8 @@ use crate::brightness::BrightnessMessage;
 const DAY_BRIGHTNESS: &str = "DAY_BRIGHTNESS";
 const NIGHT_BRIGHTNESS: &str = "NIGHT_BRIGHTNESS";
 const TRANSITION_MINS: &str = "TRANSITION_MINS";
+const LATITUDE: &str = "LATITUDE";
+const LONGITUDE: &str = "LONGITUDE";
 
 pub fn create<F>(config: Config, completion: F) -> Dialog
     where F: 'static + Fn(&mut Cursive)
@@ -16,11 +18,15 @@ pub fn create<F>(config: Config, completion: F) -> Dialog
     let day_brightness = EditView::new().max_content_width(3).content(format!("{}", config.brightness_day)).on_submit(on_submit_field);
     let night_brightness = EditView::new().max_content_width(3).content(format!("{}", config.brightness_night)).on_submit(on_submit_field);
     let transition_mins = EditView::new().max_content_width(3).content(format!("{}", config.transition_mins)).on_submit(on_submit_field);
+    let latitude = EditView::new().content(format!("{:.5}", config.location.latitude)).on_submit(on_submit_field);
+    let longitude = EditView::new().content(format!("{:.5}", config.location.longitude)).on_submit(on_submit_field);
 
     let x = ListView::new()
-        .child("Day Brightness:", NamedView::new(DAY_BRIGHTNESS, day_brightness).fixed_width(4))
-        .child("Night Brightness:", NamedView::new(NIGHT_BRIGHTNESS, night_brightness).fixed_width(4))
-        .child("Transition minutes:", NamedView::new(TRANSITION_MINS, transition_mins).fixed_width(4));
+        .child("Day Brightness:", NamedView::new(DAY_BRIGHTNESS, day_brightness).fixed_width(10))
+        .child("Night Brightness:", NamedView::new(NIGHT_BRIGHTNESS, night_brightness))
+        .child("Transition minutes:", NamedView::new(TRANSITION_MINS, transition_mins))
+        .child("Latitude:", NamedView::new(LATITUDE, latitude))
+        .child("Longitude:", NamedView::new(LONGITUDE, longitude));
 
     Dialog::around(
         LinearLayout::vertical()
@@ -43,6 +49,10 @@ fn on_apply(cursive: &mut Cursive) {
             .get_content().parse().map_err(|_| "Night Brightness must be a number".to_owned())?;
         config.transition_mins = cursive.find_name::<EditView>(TRANSITION_MINS).unwrap()
             .get_content().parse().map_err(|_| "Transition minutes must be a number".to_owned())?;
+        config.location.latitude = cursive.find_name::<EditView>(LATITUDE).unwrap()
+            .get_content().parse().map_err(|_| "Latitude must be a number".to_owned())?;
+        config.location.longitude = cursive.find_name::<EditView>(LONGITUDE).unwrap()
+            .get_content().parse().map_err(|_| "Longitude must be a number".to_owned())?;
         config.validate().map_err(|e: ValidationErrors| e.to_string())?;
         Ok(config)
     }

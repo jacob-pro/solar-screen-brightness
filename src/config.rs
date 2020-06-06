@@ -37,6 +37,7 @@ pub struct Config {
     pub brightness_night: u32,
     #[validate(range(max = 360))]
     pub transition_mins: u32,
+    #[validate]
     pub location: Location,
 }
 
