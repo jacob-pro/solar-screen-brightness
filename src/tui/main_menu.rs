@@ -59,7 +59,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
     let ud = cursive.user_data::<UserData>().unwrap();
     match choice {
         MainMenuChoice::ShowStatus => {
-            let update = ud.status.read().unwrap().last_update().clone().unwrap();
+            let update = ud.status.read().unwrap().last_calculation().clone().unwrap();
             cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.hide(); }).unwrap();
             let view = super::show_status::create(|x: &mut Cursive| {
                 x.pop_layer();
@@ -69,7 +69,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             super::show_status::status_update(cursive, update);
         },
         MainMenuChoice::EditConfig => {
-            let config = ud.status.read().unwrap().config().clone();
+            let config = ud.status.read().unwrap().config.clone();
             cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.hide(); }).unwrap();
             let view = super::edit_config::create(config, |x: &mut Cursive| {
                 x.pop_layer();
@@ -78,15 +78,15 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             cursive.add_layer(view)
         },
         MainMenuChoice::ToggleRunning => {
-            let running = *ud.status.read().unwrap().running();
+            let running = ud.status.read().unwrap().is_enabled();
             if running {
-                ud.brightness.send(BrightnessMessage::Pause).unwrap();
+                ud.brightness.send(BrightnessMessage::Disable).unwrap();
             } else {
-                ud.brightness.send(BrightnessMessage::Resume).unwrap();
+                ud.brightness.send(BrightnessMessage::Enable).unwrap();
             }
         }
         MainMenuChoice::SaveConfig => {
-            let config = ud.status.read().unwrap().config().clone();
+            let config = ud.status.read().unwrap().config.clone();
             let msg = match config.save() {
                 Ok(_) => {"Successfully Saved".to_owned()},
                 Err(e) => {e.to_string()},

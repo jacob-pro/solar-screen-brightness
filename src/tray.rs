@@ -157,12 +157,12 @@ unsafe extern "system" fn tray_window_proc(hwnd: HWND, msg: UINT, w_param : WPAR
             let app = get_user_data(&hwnd).unwrap();
             match w_param {
                 WTS_SESSION_LOCK => {
-                    app.prev_running = *app.status.read().unwrap().running();
-                    app.sender.send(BrightnessMessage::Pause).unwrap();
+                    app.prev_running = app.status.read().unwrap().is_enabled();
+                    app.sender.send(BrightnessMessage::Disable).unwrap();
                 },
                 WTS_SESSION_UNLOCK => {
                     if app.prev_running {
-                        app.sender.send(BrightnessMessage::Resume).unwrap();
+                        app.sender.send(BrightnessMessage::Enable).unwrap();
                     }
                 },
                 _ => {}

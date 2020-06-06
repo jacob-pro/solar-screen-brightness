@@ -1,7 +1,7 @@
 use cursive::views::{Dialog, TextView, LinearLayout, Button};
 use cursive::Cursive;
 use cursive::traits::Nameable;
-use crate::brightness::LastUpdate;
+use crate::brightness::LastCalculation;
 use chrono::{DateTime, Local};
 
 const STATUS_TEXT: &str = "STATUS_TEXT";
@@ -18,7 +18,7 @@ where F: 'static + Fn(&mut Cursive)
 
 const DATE_FORMAT: &str = "%H:%M %P";
 
-pub fn status_update(cursive: &mut Cursive, update: LastUpdate) {
+pub fn status_update(cursive: &mut Cursive, update: LastCalculation) {
     let mut s = String::new();
     s.push_str(format!("Brightness: {}%\n", update.brightness).as_str());
     s.push_str(format!("Changes at: {}\n", DateTime::<Local>::from(update.expiry).format(DATE_FORMAT)).as_str());

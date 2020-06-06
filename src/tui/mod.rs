@@ -1,7 +1,7 @@
 use cursive::{Cursive, CursiveExt, CbSink};
 use cursive::event::Event;
 use crate::tray::TrayMessageSender;
-use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessStatusDelegate, LastUpdate};
+use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessStatusDelegate, LastCalculation};
 use std::sync::Arc;
 
 mod main_menu;
@@ -22,7 +22,7 @@ impl BrightnessStatusDelegate for Delegate {
             main_menu::running_change(s, running);
         })).unwrap();
     }
-    fn update_change(&self, update: &LastUpdate) {
+    fn update_change(&self, update: &LastCalculation) {
         let update = update.clone();
         self.0.send(Box::new(move |s| {
             show_status::status_update(s, update);
@@ -43,7 +43,7 @@ pub fn run(tray: TrayMessageSender, brightness: BrightnessMessageSender, status:
     });
 
     siv.add_layer(main_menu::create());
-    main_menu::running_change(&mut siv, *status.read().unwrap().running());
+    main_menu::running_change(&mut siv, status.read().unwrap().is_enabled());
 
     let delegate: Arc<Box<dyn BrightnessStatusDelegate + Send + Sync>> = Arc::new(Box::new(Delegate(siv.cb_sink().clone())));
     status.write().unwrap().delegate = Arc::downgrade(&delegate);

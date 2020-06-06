@@ -11,11 +11,11 @@ pub type BrightnessStatusRef = Arc<RwLock<BrightnessStatus>>;
 
 pub trait BrightnessStatusDelegate {
     fn running_change(&self, running: &bool);
-    fn update_change(&self, update: &LastUpdate);
+    fn update_change(&self, update: &LastCalculation);
 }
 
 #[derive(Clone)]
-pub struct LastUpdate {
+pub struct LastCalculation {
     pub brightness: u32,
     pub expiry: SystemTime,
     pub time: SystemTime,
@@ -25,48 +25,49 @@ pub struct LastUpdate {
 }
 
 pub struct BrightnessStatus {
-    last_update: Option<LastUpdate>,
-    config: Config,
-    running: bool,
+    last_calculation: Option<LastCalculation>,
+    enabled: bool,
+    pub config: Config,
     pub delegate: Weak<Box<dyn BrightnessStatusDelegate + Send + Sync>>,
 }
 
 impl BrightnessStatus {
-    pub fn last_update(&self) -> &Option<LastUpdate> { &self.last_update }
-    pub fn config(&self) -> &Config { &self.config }
-    pub fn running(&self) -> &bool { &self.running }
+    pub fn last_calculation(&self) -> &Option<LastCalculation> { &self.last_calculation }
+    pub fn is_enabled(&self) -> bool { self.enabled }
 
-    fn set_running(&mut self, running: bool) {
+    fn set_enabled(&mut self, running: bool) {
         self.delegate.upgrade().map(|x| x.running_change(&running));
-        self.running = running;
+        self.enabled = running;
     }
 
-    fn set_last_update(&mut self, update: LastUpdate) {
+    fn set_last_calculation(&mut self, update: LastCalculation) {
         self.delegate.upgrade().map(|x| x.update_change(&update));
-        self.last_update = Some(update);
+        self.last_calculation = Some(update);
     }
 }
 
 pub enum BrightnessMessage {
-    NewConfig(Config),
+    NewConfig,
     Exit,
-    Pause,
-    Resume,
+    Disable,
+    Enable,
 }
 
 // Launches brightness on background thread
 pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
     let (tx, rx) = sync_channel::<BrightnessMessage>(0);
     let status2 = Arc::new(RwLock::new(BrightnessStatus {
-        last_update: None,
+        last_calculation: None,
         config: config.clone(),
-        running: true,
+        enabled: true,
         delegate: Weak::new()
     }));
     let status = status2.clone();
     thread::spawn(move || {
-        let mut config = config;
         loop {
+            // Load the latest config
+            let config = status.read().unwrap().config.clone();
+            // Calculate sunrise and brightness
             let now = SystemTime::now();
             let (ssr, br) = unsafe {
                 let mut sunrise_sunset_result: SSCAroundTimeResult = std::mem::MaybeUninit::zeroed().assume_init();
@@ -83,16 +84,19 @@ pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
                 let brightness_result = ssc_calculate_brightness(&params, &sunrise_sunset_result);
                 (sunrise_sunset_result, brightness_result)
             };
-
             let update_start = Instant::now();
 
-            for m in load_monitors() {
-                m.set_brightness(br.brightness);
+            if status.read().unwrap().enabled {
+
+                for m in load_monitors() {
+                    m.set_brightness(br.brightness);
+                }
+
             }
 
             let mut status_w = status.write().unwrap();
             status_w.config = config.clone();
-            status_w.set_last_update(LastUpdate {
+            status_w.set_last_calculation(LastCalculation {
                 brightness: br.brightness,
                 expiry: now + Duration::new(br.expiry_seconds as u64, 0),
                 time: now,
@@ -105,21 +109,14 @@ pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
             match rx.recv_timeout(Duration::from_secs(br.expiry_seconds as u64 - update_start.elapsed().as_secs())) {
                 Ok(msg) => {
                     match msg {
-                        BrightnessMessage::NewConfig(new_config) => {config = new_config}
+                        BrightnessMessage::NewConfig => {}
                         BrightnessMessage::Exit => { break }
-                        BrightnessMessage::Pause => {
-                            status.write().unwrap().set_running(false);
-                            loop {
-                                match rx.recv().unwrap() {
-                                    BrightnessMessage::Resume => {
-                                        status.write().unwrap().set_running(true);
-                                        break
-                                    }
-                                    _ => {}  // Ignore repeat Pause messages
-                                }
-                            }
+                        BrightnessMessage::Disable => {
+                            status.write().unwrap().set_enabled(false);
                         }
-                        BrightnessMessage::Resume => {}
+                        BrightnessMessage::Enable => {
+                            status.write().unwrap().set_enabled(true);
+                        }
                     }
                 }
                 Err(e) => { if e != RecvTimeoutError::Timeout { panic!(e)}}

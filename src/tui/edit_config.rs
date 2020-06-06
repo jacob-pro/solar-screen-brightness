@@ -32,7 +32,7 @@ pub fn create<F>(config: Config, completion: F) -> Dialog
 fn on_submit(cursive: &mut Cursive, _: &str) {
     let r =|cursive: &mut Cursive| -> Result<Config, String>{
         let ud = cursive.user_data::<UserData>().unwrap();
-        let mut config = ud.status.read().unwrap().config().clone();
+        let mut config = ud.status.read().unwrap().config.clone();
         config.brightness_day = cursive.find_name::<EditView>(DAY_BRIGHTNESS).unwrap()
             .get_content().parse().map_err(|_| "Day Brightness must be a number".to_owned())?;
         config.brightness_night = cursive.find_name::<EditView>(NIGHT_BRIGHTNESS).unwrap()
@@ -46,7 +46,8 @@ fn on_submit(cursive: &mut Cursive, _: &str) {
     match x {
         Ok(c) => {
             let ud = cursive.user_data::<UserData>().unwrap();
-            ud.brightness.send(BrightnessMessage::NewConfig(c)).unwrap();
+            ud.status.write().unwrap().config = c;
+            ud.brightness.send(BrightnessMessage::NewConfig).unwrap();
         },
         Err(e) => {
             cursive.add_layer(Dialog::info(e));
