@@ -1,12 +1,11 @@
 use cursive::Cursive;
-use cursive::views::{SelectView, ScrollView, NamedView, Dialog, HideableView, TextView};
+use cursive::views::{SelectView, ScrollView, NamedView, Dialog, HideableView};
 use cursive::align::HAlign;
 use enum_iterator::IntoEnumIterator;
 use crate::tui::UserData;
 use crate::tray::TrayMessage;
 use cursive::traits::Nameable;
 use crate::brightness::BrightnessMessage;
-use std::io::Error;
 
 const MAIN_VIEW: &str = "MainMenu";
 const MAIN_SELECT: &str = "MainSelect";
@@ -62,15 +61,21 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
         MainMenuChoice::ShowStatus => {
             let update = ud.status.read().unwrap().last_update().clone().unwrap();
             cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.hide(); }).unwrap();
-            let view = super::status::create(|x| {
+            let view = super::show_status::create(|x: &mut Cursive| {
                 x.pop_layer();
                 x.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.unhide(); }).unwrap();
             });
             cursive.add_layer(view);
-            super::status::status_update(cursive, update);
+            super::show_status::status_update(cursive, update);
         },
         MainMenuChoice::EditConfig => {
-
+            let config = ud.status.read().unwrap().config().clone();
+            cursive.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.hide(); }).unwrap();
+            let view = super::edit_config::create(config, |x: &mut Cursive| {
+                x.pop_layer();
+                x.call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| { x.unhide(); }).unwrap();
+            });
+            cursive.add_layer(view)
         },
         MainMenuChoice::ToggleRunning => {
             let running = *ud.status.read().unwrap().running();
@@ -86,7 +91,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
                 Ok(_) => {"Successfully Saved".to_owned()},
                 Err(e) => {e.to_string()},
             };
-            cursive.add_layer(Dialog::around(TextView::new(msg)).dismiss_button("OK"));
+            cursive.add_layer(Dialog::info(msg));
         },
         MainMenuChoice::CloseConsole => {
             &(ud.tray)(TrayMessage::CloseConsole);
@@ -95,5 +100,4 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             &(ud.tray)(TrayMessage::ExitApplication);
         },
     }
-
 }

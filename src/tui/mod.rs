@@ -5,7 +5,7 @@ use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, Brightness
 use std::sync::Arc;
 
 mod main_menu;
-mod status;
+mod show_status;
 mod edit_config;
 
 pub struct UserData {
@@ -25,7 +25,7 @@ impl BrightnessStatusDelegate for Delegate {
     fn update_change(&self, update: &LastUpdate) {
         let update = update.clone();
         self.0.send(Box::new(move |s| {
-            status::status_update(s, update);
+            show_status::status_update(s, update);
         })).unwrap();
     }
 }

@@ -12,7 +12,7 @@ where F: 'static + Fn(&mut Cursive)
     Dialog::around(
         LinearLayout::vertical()
             .child(TextView::new("null").with_name(STATUS_TEXT))
-            .child(Button::new("OK", completion))
+            .child(Button::new("Back", completion))
     ).title("Current Status")
 }
 
