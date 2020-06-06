@@ -6,6 +6,7 @@ use crate::tui::UserData;
 use crate::tray::TrayMessage;
 use cursive::traits::Nameable;
 use crate::brightness::BrightnessMessage;
+use crate::config::Config;
 
 const MAIN_VIEW: &str = "MainMenu";
 const MAIN_SELECT: &str = "MainSelect";
@@ -15,6 +16,7 @@ pub enum MainMenuChoice {
     ShowStatus = 0,
     EditConfig,
     SaveConfig,
+    ReloadConfig,
     ToggleRunning,
     CloseConsole,
     ExitApplication,
@@ -26,6 +28,7 @@ impl MainMenuChoice {
             MainMenuChoice::ShowStatus => {"Show status"},
             MainMenuChoice::EditConfig => {"Edit configuration"},
             MainMenuChoice::SaveConfig => {"Save configuration"},
+            MainMenuChoice::ReloadConfig => {"Reload configuration"},
             MainMenuChoice::ToggleRunning => {"null"},
             MainMenuChoice::CloseConsole => {"Close console"},
             MainMenuChoice::ExitApplication => {"Exit Application"},
@@ -88,11 +91,22 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
         MainMenuChoice::SaveConfig => {
             let config = ud.status.read().unwrap().config.clone();
             let msg = match config.save() {
-                Ok(_) => {"Successfully Saved".to_owned()},
+                Ok(_) => {"Successfully saved to disk".to_owned()},
                 Err(e) => {e.to_string()},
             };
             cursive.add_layer(Dialog::info(msg));
         },
+        MainMenuChoice::ReloadConfig => {
+            let msg = match Config::load() {
+                Ok(c) => {
+                    ud.status.write().unwrap().config = c;
+                    ud.brightness.send(BrightnessMessage::NewConfig).unwrap();
+                    "Successfully loaded from disk".to_owned()
+                },
+                Err(e) => {e},
+            };
+            cursive.add_layer(Dialog::info(msg));
+        }
         MainMenuChoice::CloseConsole => {
             &(ud.tray)(TrayMessage::CloseConsole);
         },
