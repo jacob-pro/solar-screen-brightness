@@ -1,6 +1,6 @@
 use crate::config::Config;
 use cursive::Cursive;
-use cursive::views::{Dialog, LinearLayout, Button, ListView, EditView, NamedView};
+use cursive::views::{Dialog, LinearLayout, Button, ListView, EditView, NamedView, DummyView};
 use cursive::traits::Resizable;
 use crate::tui::UserData;
 use validator::{Validate, ValidationErrors};
@@ -13,9 +13,9 @@ const TRANSITION_MINS: &str = "TRANSITION_MINS";
 pub fn create<F>(config: Config, completion: F) -> Dialog
     where F: 'static + Fn(&mut Cursive)
 {
-    let day_brightness = EditView::new().max_content_width(3).content(format!("{}", config.brightness_day)).on_submit(on_submit);
-    let night_brightness = EditView::new().max_content_width(3).content(format!("{}", config.brightness_night)).on_submit(on_submit);
-    let transition_mins = EditView::new().max_content_width(3).content(format!("{}", config.transition_mins)).on_submit(on_submit);
+    let day_brightness = EditView::new().max_content_width(3).content(format!("{}", config.brightness_day)).on_submit(on_submit_field);
+    let night_brightness = EditView::new().max_content_width(3).content(format!("{}", config.brightness_night)).on_submit(on_submit_field);
+    let transition_mins = EditView::new().max_content_width(3).content(format!("{}", config.transition_mins)).on_submit(on_submit_field);
 
     let x = ListView::new()
         .child("Day Brightness:", NamedView::new(DAY_BRIGHTNESS, day_brightness).fixed_width(4))
@@ -24,13 +24,17 @@ pub fn create<F>(config: Config, completion: F) -> Dialog
 
     Dialog::around(
         LinearLayout::vertical()
+            .child(DummyView)
             .child(x)
+            .child(DummyView)
+            .child(Button::new("Apply", on_apply))
+            .child(DummyView)
             .child(Button::new("Back", completion))
     ).title("Edit Configuration")
 }
 
-fn on_submit(cursive: &mut Cursive, _: &str) {
-    let r =|cursive: &mut Cursive| -> Result<Config, String>{
+fn on_apply(cursive: &mut Cursive) {
+    fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
         let ud = cursive.user_data::<UserData>().unwrap();
         let mut config = ud.status.read().unwrap().config.clone();
         config.brightness_day = cursive.find_name::<EditView>(DAY_BRIGHTNESS).unwrap()
@@ -41,20 +45,20 @@ fn on_submit(cursive: &mut Cursive, _: &str) {
             .get_content().parse().map_err(|_| "Transition minutes must be a number".to_owned())?;
         config.validate().map_err(|e: ValidationErrors| e.to_string())?;
         Ok(config)
-    };
-    let x = r(cursive);
+    }
+    let x = create_config(cursive);
     match x {
+        Err(e) => {
+            cursive.add_layer(Dialog::info(e));
+        },
         Ok(c) => {
             let ud = cursive.user_data::<UserData>().unwrap();
             ud.status.write().unwrap().config = c;
             ud.brightness.send(BrightnessMessage::NewConfig).unwrap();
-        },
-        Err(e) => {
-            cursive.add_layer(Dialog::info(e));
-        },
+        }
     };
-
 }
 
-
-
+fn on_submit_field(cursive: &mut Cursive, _: &str) {
+    on_apply(cursive);
+}

@@ -1,4 +1,4 @@
-use cursive::views::{Dialog, TextView, LinearLayout, Button};
+use cursive::views::{Dialog, TextView, LinearLayout, Button, DummyView};
 use cursive::Cursive;
 use cursive::traits::Nameable;
 use crate::brightness::LastCalculation;
@@ -11,7 +11,9 @@ where F: 'static + Fn(&mut Cursive)
 {
     Dialog::around(
         LinearLayout::vertical()
+            .child(DummyView)
             .child(TextView::new("null").with_name(STATUS_TEXT))
+            .child(DummyView)
             .child(Button::new("Back", completion))
     ).title("Current Status")
 }
