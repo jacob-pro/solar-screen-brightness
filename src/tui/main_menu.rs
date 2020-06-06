@@ -8,8 +8,8 @@ use cursive::traits::Nameable;
 use crate::brightness::BrightnessMessage;
 use crate::config::Config;
 
-const MAIN_VIEW: &str = "MainMenu";
-const MAIN_SELECT: &str = "MainSelect";
+const MAIN_VIEW: &str = "MAIN_MENU_VIEW";
+const MAIN_SELECT: &str = "MAIN_MENU_SELECT";
 
 #[derive(IntoEnumIterator)]
 pub enum MainMenuChoice {

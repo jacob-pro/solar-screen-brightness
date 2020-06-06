@@ -1,16 +1,17 @@
-use crate::config::Config;
+use crate::config::{Config, Location};
 use cursive::Cursive;
 use cursive::views::{Dialog, LinearLayout, Button, ListView, EditView, NamedView, DummyView};
-use cursive::traits::Resizable;
+use cursive::traits::{Resizable, Nameable};
 use crate::tui::UserData;
 use validator::{Validate, ValidationErrors};
 use crate::brightness::BrightnessMessage;
+use geocoding::Openstreetmap;
 
-const DAY_BRIGHTNESS: &str = "DAY_BRIGHTNESS";
-const NIGHT_BRIGHTNESS: &str = "NIGHT_BRIGHTNESS";
-const TRANSITION_MINS: &str = "TRANSITION_MINS";
-const LATITUDE: &str = "LATITUDE";
-const LONGITUDE: &str = "LONGITUDE";
+const DAY_BRIGHTNESS: &str = "EDIT_CONFIG_DAY_BRIGHTNESS";
+const NIGHT_BRIGHTNESS: &str = "EDIT_CONFIG_NIGHT_BRIGHTNESS";
+const TRANSITION_MINS: &str = "EDIT_CONFIG_TRANSITION_MINS";
+const LATITUDE: &str = "EDIT_CONFIG_LATITUDE";
+const LONGITUDE: &str = "EDIT_CONFIG_LONGITUDE";
 
 pub fn create<F>(config: Config, completion: F) -> Dialog
     where F: 'static + Fn(&mut Cursive)
@@ -32,6 +33,8 @@ pub fn create<F>(config: Config, completion: F) -> Dialog
         LinearLayout::vertical()
             .child(DummyView)
             .child(x)
+            .child(DummyView)
+            .child(Button::new("Find location", geocode_dialog))
             .child(DummyView)
             .child(Button::new("Apply", on_apply))
             .child(DummyView)
@@ -72,3 +75,33 @@ fn on_apply(cursive: &mut Cursive) {
 fn on_submit_field(cursive: &mut Cursive, _: &str) {
     on_apply(cursive);
 }
+
+const ADDRESS: &str = "EDIT_CONFIG_ADDRESS";
+
+fn geocode_dialog(cursive: &mut Cursive) {
+    cursive.add_layer(
+        Dialog::around(
+            LinearLayout::vertical()
+                .child(DummyView)
+                .child(EditView::new().on_submit(|x, _| find_address(x)).with_name(ADDRESS)))
+            .title("Search for town/city")
+            .button("Find", find_address)
+            .dismiss_button("Cancel")
+    );
+}
+
+fn find_address(cursive: &mut Cursive) {
+    let address = cursive.find_name::<EditView>(ADDRESS).unwrap().get_content();
+    match Location::geocode_address(Openstreetmap::new(), address.as_str()) {
+        Ok(l) => {
+            cursive.find_name::<EditView>(LATITUDE).unwrap().set_content(format!("{:.5}", l.latitude));
+            cursive.find_name::<EditView>(LONGITUDE).unwrap().set_content(format!("{:.5}", l.longitude));
+            on_apply(cursive);
+            cursive.pop_layer();
+        },
+        Err(e) => {
+            cursive.add_layer(Dialog::info(e));
+        },
+    }
+}
+

@@ -4,7 +4,7 @@ use cursive::traits::Nameable;
 use crate::brightness::LastCalculation;
 use chrono::{DateTime, Local};
 
-const STATUS_TEXT: &str = "STATUS_TEXT";
+const STATUS_TEXT: &str = "SHOW_STATUS_TEXT";
 
 pub fn create<F>(completion: F) -> Dialog
 where F: 'static + Fn(&mut Cursive)

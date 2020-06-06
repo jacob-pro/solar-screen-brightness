@@ -5,6 +5,7 @@ use directories::BaseDirs;
 use lazy_static::lazy_static;
 use std::path::PathBuf;
 use std::{fs, io};
+use geocoding::GeocodingError;
 
 lazy_static! {
     static ref CONFIG_DIR: PathBuf = {
@@ -58,6 +59,7 @@ impl Config {
     }
 
 }
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -67,4 +69,31 @@ impl Default for Config {
             location: Location{ latitude: 0.0, longitude: 0.0 },
         }
     }
+}
+
+impl Location {
+
+    pub fn geocode_address<G>(coder: G, address: &str) -> Result<Self, String>
+        where G: geocoding::Forward<f32>
+    {
+        let x = coder.forward(address).map_err(|x| {
+            match x {
+                GeocodingError::Request(r) => { format!("{}", r) },
+                _ => { format!("{}", x)}
+            }
+        })?;
+        match x.first() {
+            None => {Err("No matches found".to_owned())},
+            Some(p) => {
+                let l = Location {
+                    latitude: p.y(),
+                    longitude: p.x(),
+                };
+                l.validate().map_err(|e: ValidationErrors| e.to_string())?;
+                Ok(l)
+            },
+        }
+
+    }
+
 }
