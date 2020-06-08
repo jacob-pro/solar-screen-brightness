@@ -39,10 +39,11 @@ impl Monitor {
     unsafe fn new(handle: HMONITOR) -> Self {
 
         let mut count: DWORD = 0;
-        assert_eq!(GetNumberOfPhysicalMonitorsFromHMONITOR(handle, &mut count), TRUE);
+        GetNumberOfPhysicalMonitorsFromHMONITOR(handle, &mut count);
         let mut physical = Vec::with_capacity(count as usize);
-        assert_eq!(GetPhysicalMonitorsFromHMONITOR(handle, count, physical.as_mut_ptr()), TRUE);
-        physical.set_len(count as usize);
+        if GetPhysicalMonitorsFromHMONITOR(handle, count, physical.as_mut_ptr()) == TRUE {
+            physical.set_len(count as usize);
+        }
 
         let mut info: MONITORINFOEXW = std::mem::MaybeUninit::zeroed().assume_init();
         info.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;

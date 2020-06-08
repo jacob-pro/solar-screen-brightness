@@ -30,6 +30,7 @@ use winapi::shared::minwindef::TRUE;
 use crate::wide::WideString;
 use winapi::um::errhandlingapi::{GetLastError, SetLastError};
 use winapi::shared::winerror::ERROR_ALREADY_EXISTS;
+use std::process::exit;
 
 fn main() {
     std::panic::set_hook(Box::new(handle_panic));
@@ -55,5 +56,6 @@ fn handle_panic(info: &PanicInfo) {
         let title = "Fatal Error".to_wide();
         let text = format!("{}", info).as_str().to_wide();
         MessageBoxW(NULL as HWND, text.as_ptr(), title.as_ptr(), MB_OK | MB_ICONSTOP);
+        exit(1);
     }
 }
