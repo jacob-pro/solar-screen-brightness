@@ -31,7 +31,7 @@ pub struct Monitor {
     handle: HMONITOR,
     physical_monitors: Vec<PHYSICAL_MONITOR>,
     device_name: String,
-    device_string: String,
+    device_string: Option<String>,
 }
 
 impl Monitor {
@@ -52,13 +52,17 @@ impl Monitor {
 
         let mut device: DISPLAY_DEVICEW = std::mem::MaybeUninit::zeroed().assume_init();
         device.cb = std::mem::size_of::<DISPLAY_DEVICEW>() as u32;
-        assert_ne!(EnumDisplayDevicesW(&info.szDevice as LPCWSTR, 0, &mut device, 0), 0);
+        let device_string = if EnumDisplayDevicesW(&info.szDevice as LPCWSTR, 0, &mut device, 0) != 0 {
+            Some(wide_to_str(&device.DeviceString).unwrap())
+        } else {
+            None
+        };
 
         Monitor {
             handle,
             physical_monitors: physical,
             device_name: wide_to_str(&info.szDevice).unwrap(),
-            device_string: wide_to_str(&device.DeviceString).unwrap(),
+            device_string,
         }
     }
 
