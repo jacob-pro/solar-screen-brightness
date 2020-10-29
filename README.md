@@ -18,5 +18,8 @@ Currently windows only, however the algorithm is in portable C, the user interfa
 - Configuration file persisted to AppData
 - Is automatically disabled/enabled on user lock/unlock events
 
-#### Future Features
-- Needs support for different brightness settings per monitor number / device
+#### To do
+- [ ] Per monitor/device brightness settings
+- [ ] Linux Support
+- [ ] Mac Support
+
