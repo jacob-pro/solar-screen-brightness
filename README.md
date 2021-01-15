@@ -23,3 +23,10 @@ Currently windows only, however the algorithm is in portable C, the user interfa
 - [ ] Linux Support
 - [ ] Mac Support
 
+## Screenshots
+
+![](./screenshots/main.png)
+
+![](./screenshots/status.png)
+
+![](./screenshots/edit_config.png)
