@@ -1,15 +1,15 @@
 use crate::assets::Assets;
-use crate::wide::WideString;
 use crate::console::Console;
-use winapi::um::winnt::LPCWSTR;
-use winapi::um::errhandlingapi::{SetLastError, GetLastError};
-use winapi::um::winuser::*;
-use winapi::um::shellapi::*;
-use winapi::um::libloaderapi::GetModuleHandleW;
+use crate::runner::{BrightnessMessage, BrightnessMessageSender, BrightnessStatusRef};
+use crate::wide::WideString;
 use winapi::shared::minwindef::*;
+use winapi::shared::ntdef::NULL;
 use winapi::shared::windef::*;
-use winapi::shared::ntdef::{NULL};
-use crate::brightness::{BrightnessMessageSender, BrightnessStatusRef, BrightnessMessage};
+use winapi::um::errhandlingapi::{GetLastError, SetLastError};
+use winapi::um::libloaderapi::GetModuleHandleW;
+use winapi::um::shellapi::*;
+use winapi::um::winnt::LPCWSTR;
+use winapi::um::winuser::*;
 
 const CALLBACK_MSG: UINT = WM_APP + 1;
 const CLOSE_CONSOLE_MSG: UINT = WM_APP + 2;
@@ -24,17 +24,15 @@ pub enum TrayMessage {
 pub type TrayMessageSender = Box<dyn Fn(TrayMessage) + Send + Sync>;
 
 impl TrayMessage {
-
     fn send(&self, hwnd: HWND) {
         let msg = match &self {
-            TrayMessage::CloseConsole => { CLOSE_CONSOLE_MSG },
-            TrayMessage::ExitApplication => { EXIT_APPLICATION_MSG },
+            TrayMessage::CloseConsole => CLOSE_CONSOLE_MSG,
+            TrayMessage::ExitApplication => EXIT_APPLICATION_MSG,
         };
         unsafe {
             SendMessageW(hwnd, msg, 0, 0);
         }
     }
-
 }
 
 struct WindowData {
@@ -48,10 +46,10 @@ struct WindowData {
 // Blocking call, runs on this thread
 pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
     unsafe {
-        let hinstance = GetModuleHandleW( NULL as LPCWSTR );
+        let hinstance = GetModuleHandleW(NULL as LPCWSTR);
         assert_ne!(hinstance, NULL as HINSTANCE);
 
-        let mut window_class: WNDCLASSW =  std::mem::MaybeUninit::zeroed().assume_init();
+        let mut window_class: WNDCLASSW = std::mem::MaybeUninit::zeroed().assume_init();
         window_class.lpfnWndProc = Some(tray_window_proc);
         window_class.hInstance = hinstance;
         window_class.lpszClassName = "TrayHolder".to_wide().as_ptr();
@@ -70,17 +68,23 @@ pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
             NULL as HWND,
             NULL as HMENU,
             hinstance,
-            NULL);
+            NULL,
+        );
         assert_ne!(hwnd, NULL as HWND);
 
-        extern "system" { pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL; }
+        extern "system" {
+            pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL;
+        }
         assert_eq!(WTSRegisterSessionNotification(hwnd, 0), TRUE);
 
-        let mut asset = Assets::get("icon-256.png").expect("Icon missing").into_owned();
-        let hicon = CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
+        let mut asset = Assets::get("icon-256.png")
+            .expect("Icon missing")
+            .into_owned();
+        let hicon =
+            CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
         assert_ne!(hicon, NULL as HICON);
 
-        let mut data: NOTIFYICONDATAW =  std::mem::MaybeUninit::zeroed().assume_init();
+        let mut data: NOTIFYICONDATAW = std::mem::MaybeUninit::zeroed().assume_init();
         let mut name = "Solar Screen Brightness".to_wide();
         name.resize(data.szTip.len(), 0);
         let bytes = &name[..data.szTip.len()];
@@ -106,8 +110,10 @@ pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
         loop {
             let ret = GetMessageW(&mut msg, NULL as HWND, 0, 0);
             match ret {
-                -1 => { panic!("GetMessage failed"); }
-                0 => { break }
+                -1 => {
+                    panic!("GetMessage failed");
+                }
+                0 => break,
                 _ => {
                     TranslateMessage(&mut msg);
                     DispatchMessageW(&mut msg);
@@ -121,55 +127,61 @@ pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
 
 unsafe fn get_user_data(hwnd: &HWND) -> Option<&mut WindowData> {
     let user_data = GetWindowLongPtrW(*hwnd, GWLP_USERDATA);
-    if user_data == 0 { return None }
+    if user_data == 0 {
+        return None;
+    }
     Some(&mut *(user_data as *mut WindowData))
 }
 
-unsafe extern "system" fn tray_window_proc(hwnd: HWND, msg: UINT, w_param : WPARAM, l_param: LPARAM) -> LRESULT {
+unsafe extern "system" fn tray_window_proc(
+    hwnd: HWND,
+    msg: UINT,
+    w_param: WPARAM,
+    l_param: LPARAM,
+) -> LRESULT {
     match msg {
-        CALLBACK_MSG => {
-            match LOWORD(l_param as DWORD) as u32 {
-                WM_LBUTTONUP | WM_RBUTTONUP  => {
-                    let app = get_user_data(&hwnd).unwrap();
-                    let hwnd = app.icon.hWnd as usize;
-                    match &app.console {
-                        Some(c) => { c.show(); }
-                        None => {
-                            app.console = Some(Console::create(
-                                Box::new(move |msg| { msg.send(hwnd as HWND) }),
-                                app.sender.clone(),
-                                app.status.clone()
-                            ));
-                        }
+        CALLBACK_MSG => match LOWORD(l_param as DWORD) as u32 {
+            WM_LBUTTONUP | WM_RBUTTONUP => {
+                let app = get_user_data(&hwnd).unwrap();
+                let hwnd = app.icon.hWnd as usize;
+                match &app.console {
+                    Some(c) => {
+                        c.show();
+                    }
+                    None => {
+                        app.console = Some(Console::create(
+                            Box::new(move |msg| msg.send(hwnd as HWND)),
+                            app.sender.clone(),
+                            app.status.clone(),
+                        ));
                     }
                 }
-                _ => {}
             }
-        }
+            _ => {}
+        },
         CLOSE_CONSOLE_MSG => {
             let app = get_user_data(&hwnd).unwrap();
             app.console.as_ref().unwrap().hide();
         }
         EXIT_APPLICATION_MSG => {
             PostQuitMessage(0);
-        },
+        }
         WM_WTSSESSION_CHANGE => {
             let app = get_user_data(&hwnd).unwrap();
             match w_param {
                 WTS_SESSION_LOCK => {
                     app.prev_running = app.status.read().unwrap().is_enabled();
                     app.sender.send(BrightnessMessage::Disable).unwrap();
-                },
+                }
                 WTS_SESSION_UNLOCK => {
                     if app.prev_running {
                         app.sender.send(BrightnessMessage::Enable).unwrap();
                     }
-                },
+                }
                 _ => {}
             }
-
         }
         _ => {}
     }
-    return DefWindowProcW( hwnd , msg , w_param , l_param );
+    return DefWindowProcW(hwnd, msg, w_param, l_param);
 }

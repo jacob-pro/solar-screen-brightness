@@ -1,27 +1,40 @@
-use winapi::um::winuser::{EnumDisplayMonitors, GetMonitorInfoW, MONITORINFOEXW, LPMONITORINFO, EnumDisplayDevicesW};
-use winapi::shared::minwindef::{BOOL, LPARAM, TRUE, FALSE, DWORD};
-use winapi::shared::windef::{LPRECT, LPCRECT, HDC, HMONITOR};
-use winapi::shared::ntdef::NULL;
-use winapi::um::physicalmonitorenumerationapi::{GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR, DestroyPhysicalMonitors};
-use winapi::um::highlevelmonitorconfigurationapi::SetMonitorBrightness;
-use winapi::um::winnt::LPCWSTR;
-use winapi::um::wingdi::DISPLAY_DEVICEW;
 use crate::wide::wide_to_str;
-
+use winapi::shared::minwindef::{BOOL, DWORD, FALSE, LPARAM, TRUE};
+use winapi::shared::ntdef::NULL;
+use winapi::shared::windef::{HDC, HMONITOR, LPCRECT, LPRECT};
+use winapi::um::highlevelmonitorconfigurationapi::SetMonitorBrightness;
+use winapi::um::physicalmonitorenumerationapi::{
+    DestroyPhysicalMonitors, GetNumberOfPhysicalMonitorsFromHMONITOR,
+    GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
+};
+use winapi::um::wingdi::DISPLAY_DEVICEW;
+use winapi::um::winnt::LPCWSTR;
+use winapi::um::winuser::{
+    EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, LPMONITORINFO, MONITORINFOEXW,
+};
 
 pub fn load_monitors() -> Vec<Monitor> {
-    unsafe extern "system" fn enum_monitors(arg1: HMONITOR, _arg2: HDC, _arg3: LPRECT, arg4: LPARAM) -> BOOL {
+    unsafe extern "system" fn enum_monitors(
+        arg1: HMONITOR,
+        _arg2: HDC,
+        _arg3: LPRECT,
+        arg4: LPARAM,
+    ) -> BOOL {
         let monitors: &mut Vec<HMONITOR> = &mut *(arg4 as *mut Vec<HMONITOR>);
         monitors.push(arg1);
-        return TRUE
+        return TRUE;
     }
     unsafe {
         let mut hmonitors = Vec::<HMONITOR>::new();
-        assert_ne!(EnumDisplayMonitors(NULL as HDC,
-                                       NULL as LPCRECT,
-                                       Some(enum_monitors),
-                                       &mut hmonitors as *mut _ as isize
-        ), FALSE);
+        assert_ne!(
+            EnumDisplayMonitors(
+                NULL as HDC,
+                NULL as LPCRECT,
+                Some(enum_monitors),
+                &mut hmonitors as *mut _ as isize
+            ),
+            FALSE
+        );
         hmonitors.into_iter().map(|x| Monitor::new(x)).collect()
     }
 }
@@ -35,9 +48,7 @@ pub struct Monitor {
 }
 
 impl Monitor {
-
     unsafe fn new(handle: HMONITOR) -> Self {
-
         let mut count: DWORD = 0;
         GetNumberOfPhysicalMonitorsFromHMONITOR(handle, &mut count);
         let mut physical = Vec::with_capacity(count as usize);
@@ -52,11 +63,12 @@ impl Monitor {
 
         let mut device: DISPLAY_DEVICEW = std::mem::MaybeUninit::zeroed().assume_init();
         device.cb = std::mem::size_of::<DISPLAY_DEVICEW>() as u32;
-        let device_string = if EnumDisplayDevicesW(&info.szDevice as LPCWSTR, 0, &mut device, 0) != 0 {
-            Some(wide_to_str(&device.DeviceString).unwrap())
-        } else {
-            None
-        };
+        let device_string =
+            if EnumDisplayDevicesW(&info.szDevice as LPCWSTR, 0, &mut device, 0) != 0 {
+                Some(wide_to_str(&device.DeviceString).unwrap())
+            } else {
+                None
+            };
 
         Monitor {
             handle,
@@ -78,7 +90,13 @@ impl Monitor {
 impl Drop for Monitor {
     fn drop(&mut self) {
         unsafe {
-            assert_eq!(TRUE, DestroyPhysicalMonitors(self.physical_monitors.len() as u32, self.physical_monitors.as_mut_ptr()));
+            assert_eq!(
+                TRUE,
+                DestroyPhysicalMonitors(
+                    self.physical_monitors.len() as u32,
+                    self.physical_monitors.as_mut_ptr()
+                )
+            );
         }
     }
 }

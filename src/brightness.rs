@@ -1,128 +1,170 @@
 use crate::config::Config;
-use std::sync::mpsc::{SyncSender, sync_channel, RecvTimeoutError};
-use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use crate::ssc::{ssc_around_time, SSCAroundTimeResult, ssc_calculate_brightness, SSCBrightnessParams, SSCStatus_SSCStatusSuccess};
-use std::sync::{Arc, RwLock, Weak};
-use crate::monitor::load_monitors;
+use std::convert::TryInto;
+use sunrise_sunset_calculator::binding::unix_t;
+use sunrise_sunset_calculator::SscResult;
 
-pub type BrightnessMessageSender = SyncSender<BrightnessMessage>;
-pub type BrightnessStatusRef = Arc<RwLock<BrightnessStatus>>;
-
-pub trait BrightnessStatusDelegate {
-    fn running_change(&self, running: &bool);
-    fn update_change(&self, update: &LastCalculation);
-}
-
-#[derive(Clone)]
-pub struct LastCalculation {
+pub struct BrightnessResult {
+    pub expiry_seconds: u64,
     pub brightness: u32,
-    pub expiry: SystemTime,
-    pub time: SystemTime,
-    pub sunrise: SystemTime,
-    pub sunset: SystemTime,
-    pub visible: bool,
 }
 
-pub struct BrightnessStatus {
-    last_calculation: Option<LastCalculation>,
-    enabled: bool,
-    pub config: Config,
-    pub delegate: Weak<Box<dyn BrightnessStatusDelegate + Send + Sync>>,
-}
-
-impl BrightnessStatus {
-    pub fn last_calculation(&self) -> &Option<LastCalculation> { &self.last_calculation }
-    pub fn is_enabled(&self) -> bool { self.enabled }
-
-    fn set_enabled(&mut self, running: bool) {
-        self.delegate.upgrade().map(|x| x.running_change(&running));
-        self.enabled = running;
+fn sine_curve(
+    time_now: unix_t,
+    transition: u32,
+    event_time: unix_t,
+    decreasing: bool,
+    low_brightness: u32,
+    high_brightness: u32,
+) -> BrightnessResult {
+    // We need to transform the sine function
+    // Scale the height to the difference between min and max brightness
+    let y_multiplier = (high_brightness - low_brightness) as f64 / 2.0;
+    // Shift upwards to the midpoint brightness
+    let y_offset = y_multiplier + low_brightness as f64;
+    // Scale half a cycle to be equal to the transition time
+    let mut x_multiplier = std::f64::consts::PI / transition as f64;
+    // Flip the curve to make it a decreasing function
+    if decreasing {
+        x_multiplier = -x_multiplier;
     }
+    // Shift rightwards to centre on the sunrise/sunset event
+    let x_offset = (time_now - event_time) as f64;
+    // Compute brightness
+    let brightness = (y_multiplier * (x_multiplier * x_offset).sin()) + y_offset;
+    let brightness = brightness.round() as u32; // round to nearest integer brightness
 
-    fn set_last_calculation(&mut self, update: LastCalculation) {
-        self.delegate.upgrade().map(|x| x.update_change(&update));
-        self.last_calculation = Some(update);
+    // Work out the expiry time; when the brightness will change to the next integer value
+    let mut next_update_brightness = if decreasing {
+        brightness - 1
+    } else {
+        brightness + 1
+    };
+    if next_update_brightness > high_brightness {
+        next_update_brightness = high_brightness;
+    } else if next_update_brightness < low_brightness {
+        next_update_brightness = low_brightness;
+    }
+    let expiry = if time_now == event_time {
+        1 // Don't get stuck into an infinite loop when exactly on the boundary
+    } else {
+        // Inverse of the sine function at next_update_brightness
+        let asin = ((next_update_brightness as f64 - y_offset) / y_multiplier).asin();
+        let expiry_offset = (asin / x_multiplier).round();
+        let expiry_time = expiry_offset as unix_t + event_time;
+        (expiry_time - time_now).try_into().unwrap()
+    };
+    BrightnessResult {
+        expiry_seconds: expiry,
+        brightness,
     }
 }
 
-pub enum BrightnessMessage {
-    NewConfig,
-    Exit,
-    Disable,
-    Enable,
-}
+pub fn calculate_brightness(
+    config: &Config,
+    result: &SscResult,
+    time_now: unix_t,
+) -> BrightnessResult {
+    let low = config.brightness_night;
+    let high = config.brightness_day;
+    let transition_secs = config.transition_mins * 60; //time for transition from low to high
+    let half_transition_secs = (transition_secs / 2) as unix_t;
 
-// Launches brightness on background thread
-pub fn run(config: Config) -> (BrightnessMessageSender, BrightnessStatusRef) {
-    let (tx, rx) = sync_channel::<BrightnessMessage>(0);
-    let status2 = Arc::new(RwLock::new(BrightnessStatus {
-        last_calculation: None,
-        config: config.clone(),
-        enabled: true,
-        delegate: Weak::new()
-    }));
-    let status = status2.clone();
-    thread::spawn(move || {
-        loop {
-            // Load the latest config
-            let config = status.read().unwrap().config.clone();
-            // Calculate sunrise and brightness
-            let now = SystemTime::now();
-            let (ssr, br) = unsafe {
-                let mut sunrise_sunset_result: SSCAroundTimeResult = std::mem::MaybeUninit::zeroed().assume_init();
-                let status = ssc_around_time(config.location.latitude.into(),
-                                config.location.longitude.into(),
-                                now.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
-                                &mut sunrise_sunset_result);
-                assert_eq!(status, SSCStatus_SSCStatusSuccess);
-                let params = SSCBrightnessParams {
-                    brightness_day: config.brightness_day,
-                    brightness_night: config.brightness_night,
-                    transition_mins: config.transition_mins,
-                };
-                let brightness_result = ssc_calculate_brightness(&params, &sunrise_sunset_result);
-                (sunrise_sunset_result, brightness_result)
-            };
-            let update_start = Instant::now();
+    let (time_a, time_b) = if result.visible {
+        // Daytime
+        (
+            result.rise + half_transition_secs, // When the sun rose this morning  + transition
+            result.set - half_transition_secs,
+        ) // Whe the sun sets this evening - transition
+    } else {
+        // Nighttime
+        (
+            result.set + half_transition_secs, // When the sun set at the start of night + transition
+            result.rise - half_transition_secs,
+        ) // When the sun will rise again - transition
+    };
 
-            if status.read().unwrap().enabled {
-
-                for m in load_monitors() {
-                    m.set_brightness(br.brightness);
-                }
-
-            }
-
-            let mut status_w = status.write().unwrap();
-            status_w.config = config.clone();
-            status_w.set_last_calculation(LastCalculation {
-                brightness: br.brightness,
-                expiry: now + Duration::new(br.expiry_seconds as u64, 0),
-                time: now,
-                sunrise: UNIX_EPOCH + Duration::from_secs(ssr.rise as u64),
-                sunset: UNIX_EPOCH + Duration::from_secs(ssr.set as u64),
-                visible: ssr.visible
-            });
-            drop(status_w);
-
-            match rx.recv_timeout(Duration::from_secs(br.expiry_seconds as u64 - update_start.elapsed().as_secs())) {
-                Ok(msg) => {
-                    match msg {
-                        BrightnessMessage::NewConfig => {}
-                        BrightnessMessage::Exit => { break }
-                        BrightnessMessage::Disable => {
-                            status.write().unwrap().set_enabled(false);
-                        }
-                        BrightnessMessage::Enable => {
-                            status.write().unwrap().set_enabled(true);
-                        }
-                    }
-                }
-                Err(e) => { if e != RecvTimeoutError::Timeout { panic!(e)}}
-            };
+    if time_now < time_a {
+        let event = if result.visible {
+            result.rise
+        } else {
+            result.set
+        };
+        sine_curve(time_now, transition_secs, event, !result.visible, low, high)
+    } else if time_now >= time_b {
+        // Must be greater or equal to or it would get stuck in a loop
+        let event = if result.visible {
+            result.set
+        } else {
+            result.rise
+        };
+        sine_curve(time_now, transition_secs, event, result.visible, low, high)
+    } else {
+        // Time is >=A and <B, therefore the brightness next change is at B
+        BrightnessResult {
+            expiry_seconds: (time_b - time_now).try_into().unwrap(),
+            brightness: if result.visible { high } else { low },
         }
-    });
-    (tx, status2)
+    }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn test_sunset_sine_curve() {
+        let low = 40;
+        let high = 80;
+        let t_secs = 60 * 60; //60 minutes
+        let set = Utc.ymd(2018, 12, 2).and_hms(16, 0, 0).timestamp(); // Fictional
+        let midpoint = (low as f64 + ((high - low) as f64 / 2.0)).round() as u32;
+
+        // At start of the transition it should equal the day brightness
+        let transition_start = Utc.ymd(2018, 12, 2).and_hms(15, 30, 0).timestamp();
+        let r = sine_curve(transition_start, t_secs, set, true, low, high);
+        assert_eq!(high, r.brightness); //80
+
+        //Test part way between transition. It should be less than the daytime brightness. But greater than the midpoint because it is not yet sunset
+        let before_sunset = Utc.ymd(2018, 12, 2).and_hms(15, 45, 0).timestamp();
+        let r = sine_curve(before_sunset, t_secs, set, true, low, high);
+        assert!(r.brightness < high && r.brightness > midpoint); //~74
+
+        //At sunset it should be half way between the day and night brightness
+        let r = sine_curve(set, t_secs, set, true, low, high);
+        assert_eq!(midpoint, r.brightness); //60
+
+        //At end of the transition it should equal the night brightness
+        let transition_end = Utc.ymd(2018, 12, 2).and_hms(16, 30, 0).timestamp();
+        let r = sine_curve(transition_end, t_secs, set, true, low, high);
+        assert_eq!(r.brightness, low); // 40
+    }
+
+    #[test]
+    fn test_sunrise_sine_curve() {
+        let low = 35;
+        let high = 76;
+        let t_secs = 40 * 60; //40 minutes
+        let rise = Utc.ymd(2018, 12, 2).and_hms(8, 0, 0).timestamp(); // Fictional
+        let midpoint = (low as f64 + ((high - low) as f64 / 2.0)).round() as u32;
+
+        //At start of the transition it should equal the night brightness
+        let start_of_transition = Utc.ymd(2018, 12, 2).and_hms(7, 40, 0).timestamp();
+        let r = sine_curve(start_of_transition, t_secs, rise, false, low, high);
+        assert_eq!(low, r.brightness); // 35
+
+        //Test part way between transition. It should be greater than night brighness. But less than the midpoint because it is not yet sunrise
+        let before_sunrise = Utc.ymd(2018, 12, 2).and_hms(7, 50, 0).timestamp();
+        let r = sine_curve(before_sunrise, t_secs, rise, false, low, high);
+        assert!(r.brightness > low && r.brightness < midpoint); //~41
+
+        //At sunrise it should be half way between the day and night brightness
+        let r = sine_curve(rise, t_secs, rise, false, low, high);
+        assert_eq!(midpoint, r.brightness); //55.5 is rounded to 56
+
+        //At end of the transition it should equal the daytime brightness
+        let end_of_transition = Utc.ymd(2018, 12, 2).and_hms(8, 20, 0).timestamp();
+        let r = sine_curve(end_of_transition, t_secs, rise, false, low, high);
+        assert_eq!(high, r.brightness); // 76
+    }
+}

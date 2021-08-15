@@ -1,6 +1,6 @@
 use std::ffi::{OsStr, OsString};
-use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::iter::once;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
 pub trait WideString {
     fn to_wide(&self) -> Vec<u16>;
