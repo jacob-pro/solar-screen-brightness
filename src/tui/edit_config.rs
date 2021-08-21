@@ -82,9 +82,7 @@ fn attempt_save(cursive: &mut Cursive) -> bool {
             let ud = cursive.user_data::<UserData>().unwrap();
             ud.state.write().unwrap().set_config(cfg.clone());
             match cfg.save() {
-                Ok(_) => {
-                    return true
-                }
+                Ok(_) => return true,
                 Err(e) => {
                     cursive.add_layer(Dialog::info(e.to_string()));
                 }
