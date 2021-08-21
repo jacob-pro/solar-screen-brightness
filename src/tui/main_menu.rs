@@ -65,7 +65,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
     let ud = cursive.user_data::<UserData>().unwrap();
     match choice {
         MainMenuChoice::ShowStatus => {
-            let update = ud.state.read().unwrap().get_last_result().clone().unwrap();
+            let update = ud.state.read().unwrap().get_last_result().clone();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();

@@ -4,11 +4,11 @@ pub mod state;
 use crate::config::Config;
 use crate::controller::apply::{apply, ApplyResult};
 use crate::controller::state::Observer;
+use chrono::prelude::*;
 use state::State;
 use std::sync::mpsc::{sync_channel, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, RwLock, Weak};
-use std::time::{Duration};
-use chrono::prelude::*;
+use std::time::Duration;
 
 pub type StateRef = Arc<RwLock<State>>;
 
@@ -31,7 +31,7 @@ impl BrightnessController {
     }
 
     pub fn start(&mut self) {
-        if !self.state_watcher.is_none() {
+        if self.state_watcher.is_none() {
             let (tx, rx) = sync_channel::<Notification>(0);
             let watcher = Arc::new(StateWatcher { tx });
             self.state

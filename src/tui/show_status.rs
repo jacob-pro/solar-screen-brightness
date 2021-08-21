@@ -1,4 +1,4 @@
-use crate::controller::apply::{ApplyResult, BrightnessResults};
+use crate::controller::apply::{ApplyResult, SolarAndBrightnessResults};
 use chrono::{DateTime, Local};
 use cursive::traits::Nameable;
 use cursive::views::{Button, Dialog, DummyView, LinearLayout, TextView};
@@ -26,6 +26,9 @@ pub fn status_update(cursive: &mut Cursive, update: ApplyResult) {
     let mut s = String::new();
 
     match update {
+        ApplyResult::None => {
+            s.push_str("Waiting for brightness controller to start...");
+        }
         ApplyResult::Error(e) => {
             s.push_str("Error applying brightness:\n");
             s.push_str(format!("{}", e).as_str());
@@ -34,8 +37,14 @@ pub fn status_update(cursive: &mut Cursive, update: ApplyResult) {
             s.push_str("(Currently disabled)\n\n");
             push_brightness_results(&mut s, b);
         }
-        ApplyResult::Applied(b) => {
+        ApplyResult::Applied(b, e) => {
             push_brightness_results(&mut s, b);
+            if e.len() > 0 {
+                s.push_str("\nErrors occurred during applying:\n");
+            }
+            for e in &*e {
+                s.push_str(format!("{}\n", e).as_str());
+            }
         }
     };
 
@@ -44,7 +53,7 @@ pub fn status_update(cursive: &mut Cursive, update: ApplyResult) {
     });
 }
 
-pub fn push_brightness_results(s: &mut String, res: BrightnessResults) {
+pub fn push_brightness_results(s: &mut String, res: SolarAndBrightnessResults) {
     s.push_str(format!("Base brightness: {}%\n", res.base_brightness).as_str());
     s.push_str(
         format!(

@@ -3,7 +3,7 @@ use crate::controller::apply::ApplyResult;
 use std::sync::{Arc, Weak};
 
 pub struct State {
-    last_result: Option<ApplyResult>,
+    last_result: ApplyResult,
     enabled: bool,
     config: Config,
     observers: Vec<Weak<dyn Observer + Send + Sync>>,
@@ -18,7 +18,7 @@ pub trait Observer {
 impl State {
     pub fn new(config: Config) -> Self {
         Self {
-            last_result: None,
+            last_result: ApplyResult::None,
             enabled: true,
             config,
             observers: vec![],
@@ -33,7 +33,7 @@ impl State {
         &self.config
     }
 
-    pub fn get_last_result(&self) -> &Option<ApplyResult> {
+    pub fn get_last_result(&self) -> &ApplyResult {
         &self.last_result
     }
 
@@ -69,9 +69,9 @@ impl State {
     }
 
     pub(super) fn set_last_result(&mut self, last_result: ApplyResult) {
-        self.last_result = Some(last_result);
+        self.last_result = last_result;
         self.clean_observers();
-        self.notify_observers(|o| o.did_set_last_result(self.last_result.as_ref().unwrap()));
+        self.notify_observers(|o| o.did_set_last_result(&self.last_result));
     }
 
     fn clean_observers(&mut self) {

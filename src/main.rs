@@ -8,7 +8,6 @@ mod brightness;
 mod config;
 mod console;
 mod controller;
-mod monitor;
 mod tray;
 mod tui;
 mod wide;
