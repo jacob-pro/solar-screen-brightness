@@ -14,7 +14,6 @@ const MAIN_SELECT: &str = "MAIN_MENU_SELECT";
 pub enum MainMenuChoice {
     ShowStatus = 0,
     EditConfig,
-    SaveConfig,
     ReloadConfig,
     ToggleRunning,
     CloseConsole,
@@ -26,7 +25,6 @@ impl MainMenuChoice {
         match self {
             MainMenuChoice::ShowStatus => "Show status",
             MainMenuChoice::EditConfig => "Edit configuration",
-            MainMenuChoice::SaveConfig => "Save configuration",
             MainMenuChoice::ReloadConfig => "Reload configuration",
             MainMenuChoice::ToggleRunning => "null",
             MainMenuChoice::CloseConsole => "Close console",
@@ -101,14 +99,6 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             let mut write = ud.state.write().unwrap();
             let enabled = write.get_enabled();
             write.set_enabled(!enabled);
-        }
-        MainMenuChoice::SaveConfig => {
-            let config = ud.state.read().unwrap().get_config().clone();
-            let msg = match config.save() {
-                Ok(_) => "Successfully saved to disk".to_owned(),
-                Err(e) => e.to_string(),
-            };
-            cursive.add_layer(Dialog::info(msg));
         }
         MainMenuChoice::ReloadConfig => {
             let msg = match Config::load() {

@@ -39,7 +39,7 @@ impl Observer for CursiveObserver {
 }
 
 pub fn run(tray: TrayMessageSender, state: StateRef) {
-    let mut siv = Cursive::crossterm().unwrap();
+    let mut siv = Cursive::default();
 
     siv.clear_global_callbacks(Event::CtrlChar('c'));
     siv.clear_global_callbacks(Event::Exit);
