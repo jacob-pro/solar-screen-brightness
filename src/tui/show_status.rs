@@ -1,4 +1,4 @@
-use crate::runner::LastCalculation;
+use crate::controller::state::LastResult;
 use chrono::{DateTime, Local};
 use cursive::traits::Nameable;
 use cursive::views::{Button, Dialog, DummyView, LinearLayout, TextView};
@@ -22,7 +22,7 @@ where
 
 const DATE_FORMAT: &str = "%H:%M %P";
 
-pub fn status_update(cursive: &mut Cursive, update: LastCalculation) {
+pub fn status_update(cursive: &mut Cursive, update: LastResult) {
     let mut s = String::new();
     s.push_str(format!("Brightness: {}%\n", update.brightness).as_str());
     s.push_str(

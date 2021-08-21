@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::runner::BrightnessMessage;
 use crate::tray::TrayMessage;
 use crate::tui::UserData;
 use cursive::align::HAlign;
@@ -66,13 +65,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
     let ud = cursive.user_data::<UserData>().unwrap();
     match choice {
         MainMenuChoice::ShowStatus => {
-            let update = ud
-                .status
-                .read()
-                .unwrap()
-                .last_calculation()
-                .clone()
-                .unwrap();
+            let update = ud.state.read().unwrap().get_last_result().clone().unwrap();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();
@@ -89,7 +82,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             super::show_status::status_update(cursive, update);
         }
         MainMenuChoice::EditConfig => {
-            let config = ud.status.read().unwrap().config.clone();
+            let config = ud.state.read().unwrap().get_config().clone();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();
@@ -105,15 +98,12 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             cursive.add_layer(view)
         }
         MainMenuChoice::ToggleRunning => {
-            let running = ud.status.read().unwrap().is_enabled();
-            if running {
-                ud.brightness.send(BrightnessMessage::Disable).unwrap();
-            } else {
-                ud.brightness.send(BrightnessMessage::Enable).unwrap();
-            }
+            let mut write = ud.state.write().unwrap();
+            let enabled = write.get_enabled();
+            write.set_enabled(!enabled);
         }
         MainMenuChoice::SaveConfig => {
-            let config = ud.status.read().unwrap().config.clone();
+            let config = ud.state.read().unwrap().get_config().clone();
             let msg = match config.save() {
                 Ok(_) => "Successfully saved to disk".to_owned(),
                 Err(e) => e.to_string(),
@@ -123,8 +113,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
         MainMenuChoice::ReloadConfig => {
             let msg = match Config::load() {
                 Ok(c) => {
-                    ud.status.write().unwrap().config = c;
-                    ud.brightness.send(BrightnessMessage::NewConfig).unwrap();
+                    ud.state.write().unwrap().set_config(c);
                     "Successfully loaded from disk".to_owned()
                 }
                 Err(e) => e,

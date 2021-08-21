@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 chrono = "0.4"
 config = "0.10.1"
-cursive = { default-features = false, features = ["crossterm-backend"], git = "https://github.com/gyscos/cursive" }
+cursive = { default-features = false, features = ["crossterm-backend"], git = "https://github.com/gyscos/cursive", rev = "f8d34b8c520fc7637bffed21e1c9501c73ce9e45" }
 directories = "2.0"
 enum-iterator = "0.6.0"
 geocoding = "0.2.0"

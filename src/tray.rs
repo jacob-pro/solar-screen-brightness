@@ -1,6 +1,6 @@
 use crate::assets::Assets;
 use crate::console::Console;
-use crate::runner::{BrightnessMessage, BrightnessMessageSender, BrightnessStatusRef};
+use crate::controller::{BrightnessController, StateRef};
 use crate::wide::WideString;
 use winapi::shared::minwindef::*;
 use winapi::shared::ntdef::NULL;
@@ -38,13 +38,12 @@ impl TrayMessage {
 struct WindowData {
     icon: NOTIFYICONDATAW,
     console: Option<Console>,
-    sender: BrightnessMessageSender,
-    status: BrightnessStatusRef,
+    state: StateRef,
     prev_running: bool,
 }
 
 // Blocking call, runs on this thread
-pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
+pub fn run(controller: &BrightnessController) {
     unsafe {
         let hinstance = GetModuleHandleW(NULL as LPCWSTR);
         assert_ne!(hinstance, NULL as HINSTANCE);
@@ -98,8 +97,7 @@ pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
         let mut window_data = Box::new(WindowData {
             icon: data,
             console: None,
-            sender,
-            status,
+            state: controller.state.clone(),
             prev_running: false,
         });
         SetLastError(0);
@@ -151,8 +149,7 @@ unsafe extern "system" fn tray_window_proc(
                     None => {
                         app.console = Some(Console::create(
                             Box::new(move |msg| msg.send(hwnd as HWND)),
-                            app.sender.clone(),
-                            app.status.clone(),
+                            app.state.clone(),
                         ));
                     }
                 }
@@ -170,12 +167,13 @@ unsafe extern "system" fn tray_window_proc(
             let app = get_user_data(&hwnd).unwrap();
             match w_param {
                 WTS_SESSION_LOCK => {
-                    app.prev_running = app.status.read().unwrap().is_enabled();
-                    app.sender.send(BrightnessMessage::Disable).unwrap();
+                    let mut state = app.state.write().unwrap();
+                    app.prev_running = state.get_enabled();
+                    state.set_enabled(false);
                 }
                 WTS_SESSION_UNLOCK => {
                     if app.prev_running {
-                        app.sender.send(BrightnessMessage::Enable).unwrap();
+                        app.state.write().unwrap().set_enabled(true);
                     }
                 }
                 _ => {}

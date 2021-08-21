@@ -1,5 +1,5 @@
 use crate::assets::Assets;
-use crate::runner::{BrightnessMessageSender, BrightnessStatusRef};
+use crate::controller::StateRef;
 use crate::tray::TrayMessageSender;
 use crate::tui::run;
 use crate::wide::WideString;
@@ -13,11 +13,7 @@ use winapi::um::winuser::*;
 pub struct Console {}
 
 impl Console {
-    pub fn create(
-        tray: TrayMessageSender,
-        brightness: BrightnessMessageSender,
-        status: BrightnessStatusRef,
-    ) -> Self {
+    pub fn create(tray: TrayMessageSender, state: StateRef) -> Self {
         unsafe {
             assert_eq!(AllocConsole(), TRUE);
             let console_window = GetConsoleWindow();
@@ -46,7 +42,7 @@ impl Console {
             );
         }
         std::thread::spawn(move || {
-            run(tray, brightness, status);
+            run(tray, state);
         });
         Console {}
     }

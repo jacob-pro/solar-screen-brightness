@@ -1,5 +1,4 @@
 use crate::config::{Config, Location};
-use crate::runner::BrightnessMessage;
 use crate::tui::UserData;
 use cursive::traits::{Nameable, Resizable};
 use cursive::views::{Button, Dialog, DummyView, EditView, LinearLayout, ListView, NamedView};
@@ -69,7 +68,7 @@ where
 fn on_apply(cursive: &mut Cursive) {
     fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
         let ud = cursive.user_data::<UserData>().unwrap();
-        let mut config = ud.status.read().unwrap().config.clone();
+        let mut config = ud.state.read().unwrap().get_config().clone();
         config.brightness_day = cursive
             .find_name::<EditView>(DAY_BRIGHTNESS)
             .unwrap()
@@ -112,8 +111,7 @@ fn on_apply(cursive: &mut Cursive) {
         }
         Ok(c) => {
             let ud = cursive.user_data::<UserData>().unwrap();
-            ud.status.write().unwrap().config = c;
-            ud.brightness.send(BrightnessMessage::NewConfig).unwrap();
+            ud.state.write().unwrap().set_config(c);
         }
     };
 }

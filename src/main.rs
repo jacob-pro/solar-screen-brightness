@@ -7,14 +7,14 @@ mod assets;
 mod brightness;
 mod config;
 mod console;
+mod controller;
 mod monitor;
-mod runner;
 mod tray;
 mod tui;
 mod wide;
 
 use crate::config::Config;
-use crate::runner::BrightnessMessage;
+use crate::controller::BrightnessController;
 use crate::wide::WideString;
 use std::panic::PanicInfo;
 use std::process::exit;
@@ -32,10 +32,10 @@ fn main() {
     if already_running() {
         panic!("Already running")
     };
-    let config = Config::load().unwrap_or(Config::default());
-    let (sender, status) = runner::run(config);
-    tray::run(sender.clone(), status);
-    sender.send(BrightnessMessage::Exit).unwrap();
+    let config = Config::load().ok().unwrap_or_default();
+    let mut controller = BrightnessController::new(config);
+    controller.start();
+    tray::run(&controller);
 }
 
 fn already_running() -> bool {
