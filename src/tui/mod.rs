@@ -1,5 +1,6 @@
 use crate::config::Config;
-use crate::controller::state::{LastResult, Observer};
+use crate::controller::apply::ApplyResult;
+use crate::controller::state::Observer;
 use crate::controller::StateRef;
 use crate::tray::TrayMessageSender;
 use cursive::event::Event;
@@ -25,7 +26,7 @@ impl Observer for CursiveObserver {
             }))
             .unwrap();
     }
-    fn did_set_last_result(&self, update: &LastResult) {
+    fn did_set_last_result(&self, update: &ApplyResult) {
         let update = update.clone();
         self.0
             .send(Box::new(move |s| {

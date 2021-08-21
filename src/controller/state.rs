@@ -1,19 +1,9 @@
 use crate::config::Config;
+use crate::controller::apply::ApplyResult;
 use std::sync::{Arc, Weak};
-use std::time::SystemTime;
-
-#[derive(Clone)]
-pub struct LastResult {
-    pub brightness: u32,
-    pub expiry: SystemTime,
-    pub time: SystemTime,
-    pub sunrise: SystemTime,
-    pub sunset: SystemTime,
-    pub visible: bool,
-}
 
 pub struct State {
-    last_result: Option<LastResult>,
+    last_result: Option<ApplyResult>,
     enabled: bool,
     config: Config,
     observers: Vec<Weak<dyn Observer + Send + Sync>>,
@@ -21,7 +11,7 @@ pub struct State {
 
 pub trait Observer {
     fn did_set_enabled(&self, running: bool);
-    fn did_set_last_result(&self, last_calculation: &LastResult);
+    fn did_set_last_result(&self, last_result: &ApplyResult);
     fn did_set_config(&self, config: &Config);
 }
 
@@ -43,7 +33,7 @@ impl State {
         &self.config
     }
 
-    pub fn get_last_result(&self) -> &Option<LastResult> {
+    pub fn get_last_result(&self) -> &Option<ApplyResult> {
         &self.last_result
     }
 
@@ -78,7 +68,7 @@ impl State {
         before
     }
 
-    pub(super) fn set_last_result(&mut self, last_result: LastResult) {
+    pub(super) fn set_last_result(&mut self, last_result: ApplyResult) {
         self.last_result = Some(last_result);
         self.clean_observers();
         self.notify_observers(|o| o.did_set_last_result(self.last_result.as_ref().unwrap()));

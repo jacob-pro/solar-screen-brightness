@@ -1687,6 +1687,7 @@ dependencies = [
  "rust-embed",
  "serde 1.0.127",
  "sunrise-sunset-calculator",
+ "thiserror",
  "toml",
  "validator",
  "validator_derive",

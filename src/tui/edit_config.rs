@@ -29,10 +29,16 @@ where
         .content(format!("{}", config.transition_mins))
         .on_submit(on_submit_field);
     let latitude = EditView::new()
-        .content(format!("{:.5}", config.location.latitude))
+        .content(format!(
+            "{:.5}",
+            config.location.as_ref().map(|l| l.latitude).unwrap_or(0.0)
+        ))
         .on_submit(on_submit_field);
     let longitude = EditView::new()
-        .content(format!("{:.5}", config.location.longitude))
+        .content(format!(
+            "{:.5}",
+            config.location.as_ref().map(|l| l.longitude).unwrap_or(0.0)
+        ))
         .on_submit(on_submit_field);
 
     let x = ListView::new()
@@ -87,18 +93,20 @@ fn on_apply(cursive: &mut Cursive) {
             .get_content()
             .parse()
             .map_err(|_| "Transition minutes must be a number".to_owned())?;
-        config.location.latitude = cursive
-            .find_name::<EditView>(LATITUDE)
-            .unwrap()
-            .get_content()
-            .parse()
-            .map_err(|_| "Latitude must be a number".to_owned())?;
-        config.location.longitude = cursive
-            .find_name::<EditView>(LONGITUDE)
-            .unwrap()
-            .get_content()
-            .parse()
-            .map_err(|_| "Longitude must be a number".to_owned())?;
+        config.location = Some(Location {
+            latitude: cursive
+                .find_name::<EditView>(LATITUDE)
+                .unwrap()
+                .get_content()
+                .parse()
+                .map_err(|_| "Latitude must be a number".to_owned())?,
+            longitude: cursive
+                .find_name::<EditView>(LONGITUDE)
+                .unwrap()
+                .get_content()
+                .parse()
+                .map_err(|_| "Longitude must be a number".to_owned())?,
+        });
         config
             .validate()
             .map_err(|e: ValidationErrors| e.to_string())?;
