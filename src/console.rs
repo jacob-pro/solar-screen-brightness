@@ -5,17 +5,20 @@ use crate::tui::run;
 use crate::wide::{wchar_to_string, WideString};
 
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
-    Foundation::{BOOL, HWND, LPARAM, PWSTR, WPARAM},
+    Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
     System::Threading::GetCurrentProcessId,
     UI::WindowsAndMessaging::{
-        BringWindowToTop, CreateIconFromResource, EnumWindows, GetClassNameW,
-        GetWindowThreadProcessId, SendMessageW, SetForegroundWindow, SetWindowTextW, ShowWindow,
-        ICON_BIG, ICON_SMALL, SW_HIDE, SW_RESTORE, WM_SETICON,
+        BringWindowToTop, CallWindowProcW, CreateIconFromResource, EnumWindows, GetClassNameW,
+        GetWindowLongPtrW, GetWindowThreadProcessId, SendMessageW, SetForegroundWindow,
+        SetWindowLongPtrW, SetWindowTextW, ShowWindow, GWLP_USERDATA, GWL_WNDPROC, ICON_BIG,
+        ICON_SMALL, SW_HIDE, SW_RESTORE, WM_CLOSE, WM_SETICON, WM_SYSCOMMAND, WNDPROC,
     },
 };
 
 pub struct Console {
     handle: HWND,
+    old_proc: isize,
+    old_data: isize,
 }
 
 impl Console {
@@ -23,16 +26,27 @@ impl Console {
         std::thread::spawn(move || {
             run(tray, state);
         });
-        let console = Console {
-            handle: find_console_handle(),
+        let handle = find_console_handle();
+        let mut console = unsafe {
+            Console {
+                handle,
+                old_proc: GetWindowLongPtrW(handle, GWL_WNDPROC),
+                old_data: GetWindowLongPtrW(handle, GWLP_USERDATA),
+            }
         };
         console.configure();
         console.show();
         console
     }
 
-    fn configure(&self) {
+    fn configure(&mut self) {
         unsafe {
+            assert_ne!(
+                SetWindowLongPtrW(self.handle, GWL_WNDPROC, window_proc as isize),
+                0
+            );
+            SetWindowLongPtrW(self.handle, GWLP_USERDATA, (self as *mut _) as isize);
+
             let mut title = "Solar Screen Brightness".to_wide();
             SetWindowTextW(self.handle, PWSTR(title.as_mut_ptr()));
             let mut asset = Assets::get("icon-256.png")
@@ -44,7 +58,6 @@ impl Console {
                 BOOL::from(true),
                 0x00030000,
             );
-            assert!(!hicon.is_null());
             SendMessageW(
                 self.handle,
                 WM_SETICON,
@@ -75,20 +88,37 @@ impl Console {
     }
 }
 
-// unsafe extern "system" fn tray_window_proc(
-//     hwnd: HWND,
-//     msg: u32,
-//     w_param: WPARAM,
-//     l_param: LPARAM,
-// ) -> LRESULT {
-//     println!("{}", msg);
-//     return DefWindowProcW(hwnd, msg, w_param, l_param);
-// }
+unsafe fn get_user_data<T>(hwnd: &HWND) -> Option<&mut T> {
+    let user_data = GetWindowLongPtrW(*hwnd, GWLP_USERDATA);
+    if user_data == 0 {
+        return None;
+    }
+    Some(&mut *(user_data as *mut T))
+}
+
+unsafe extern "system" fn window_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    match msg {
+        WM_CLOSE => return LRESULT(0),
+        WM_SYSCOMMAND => return LRESULT(0),
+        _ => {}
+    };
+    let console: &mut Console = get_user_data(&hwnd).unwrap();
+    let ptr = console.old_proc as *const ();
+    let code: WNDPROC = std::mem::transmute(ptr);
+    CallWindowProcW(Some(code), hwnd, msg, wparam, lparam)
+}
 
 struct FindParam {
     pid: u32,
     handle: HWND,
 }
+
+const CURSES_CLASS: &'static str = "Curses_App";
 
 fn find_console_handle() -> HWND {
     unsafe {
@@ -96,12 +126,13 @@ fn find_console_handle() -> HWND {
             pid: GetCurrentProcessId(),
             handle: HWND::NULL,
         };
-        while find.handle.is_null() {
-            println!("trying");
+        for _ in 0..100 {
             EnumWindows(Some(enum_proc), LPARAM((&mut find as *mut _) as isize));
+            if !find.handle.is_null() {
+                return find.handle;
+            }
         }
-        println!("got");
-        find.handle
+        panic!("Unable to find Window of class '{}'", CURSES_CLASS);
     }
 }
 
@@ -114,7 +145,7 @@ unsafe extern "system" fn enum_proc(window: HWND, arg: LPARAM) -> BOOL {
         let len = GetClassNameW(window, PWSTR(buffer.as_mut_ptr()), buffer.capacity() as i32);
         buffer.set_len(len as usize);
         let class_name = wchar_to_string(buffer.as_slice());
-        if class_name == "Curses_App" {
+        if class_name == CURSES_CLASS {
             find.handle = window;
             return false.into();
         }
