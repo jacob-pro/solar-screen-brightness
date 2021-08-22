@@ -2,7 +2,7 @@ use crate::assets::Assets;
 use crate::controller::StateRef;
 use crate::tray::TrayMessageSender;
 use crate::tui::run;
-use crate::wide::WideString;
+use crate::wide::{get_user_data, WideString};
 
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
@@ -102,14 +102,6 @@ impl WindowData {
     }
 }
 
-unsafe fn get_user_data<T>(hwnd: &HWND) -> Option<&mut T> {
-    let user_data = GetWindowLongPtrW(*hwnd, GWLP_USERDATA);
-    if user_data == 0 {
-        return None;
-    }
-    Some(&mut *(user_data as *mut T))
-}
-
 unsafe extern "system" fn window_proc(
     hwnd: HWND,
     msg: u32,
@@ -119,7 +111,6 @@ unsafe extern "system" fn window_proc(
     let window_data: &mut WindowData = get_user_data(&hwnd).unwrap();
     match msg {
         WM_CLOSE => {
-            println!("wm_close");
             window_data.hide();
             return LRESULT(0);
         }
