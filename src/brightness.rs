@@ -1,10 +1,9 @@
 use crate::config::Config;
-use std::convert::TryInto;
 use sunrise_sunset_calculator::binding::unix_t;
 use sunrise_sunset_calculator::SscResult;
 
 pub struct BrightnessResult {
-    pub expiry_seconds: u64,
+    pub expiry_time: unix_t,
     pub brightness: u32,
 }
 
@@ -44,17 +43,16 @@ fn sine_curve(
     } else if next_update_brightness < low_brightness {
         next_update_brightness = low_brightness;
     }
-    let expiry = if time_now == event_time {
-        1 // Don't get stuck into an infinite loop when exactly on the boundary
+    let expiry_time = if time_now == event_time {
+        time_now + 1 // Don't get stuck into an infinite loop when exactly on the boundary
     } else {
         // Inverse of the sine function at next_update_brightness
         let asin = ((next_update_brightness as f64 - y_offset) / y_multiplier).asin();
         let expiry_offset = (asin / x_multiplier).round();
-        let expiry_time = expiry_offset as unix_t + event_time;
-        (expiry_time - time_now).try_into().unwrap()
+        expiry_offset as unix_t + event_time
     };
     BrightnessResult {
-        expiry_seconds: expiry,
+        expiry_time,
         brightness,
     }
 }
@@ -101,7 +99,7 @@ pub fn calculate_brightness(
     } else {
         // Time is >=A and <B, therefore the brightness next change is at B
         BrightnessResult {
-            expiry_seconds: (time_b - time_now).try_into().unwrap(),
+            expiry_time: time_b,
             brightness: if result.visible { high } else { low },
         }
     }

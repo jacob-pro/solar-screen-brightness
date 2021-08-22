@@ -1,19 +1,27 @@
 use crate::assets::Assets;
 use crate::console::Console;
-use crate::runner::{BrightnessMessage, BrightnessMessageSender, BrightnessStatusRef};
-use crate::wide::WideString;
-use winapi::shared::minwindef::*;
-use winapi::shared::ntdef::NULL;
-use winapi::shared::windef::*;
-use winapi::um::errhandlingapi::{GetLastError, SetLastError};
-use winapi::um::libloaderapi::GetModuleHandleW;
-use winapi::um::shellapi::*;
-use winapi::um::winnt::LPCWSTR;
-use winapi::um::winuser::*;
+use crate::controller::{BrightnessController, StateRef};
+use crate::wide::{get_user_data, loword, WideString};
 
-const CALLBACK_MSG: UINT = WM_APP + 1;
-const CLOSE_CONSOLE_MSG: UINT = WM_APP + 2;
-const EXIT_APPLICATION_MSG: UINT = WM_APP + 3;
+use solar_screen_brightness_windows_bindings::Windows::Win32::{
+    Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
+    System::Diagnostics::Debug::{GetLastError, SetLastError, WIN32_ERROR},
+    System::LibraryLoader::GetModuleHandleW,
+    System::RemoteDesktop::WTSRegisterSessionNotification,
+    UI::Shell::{
+        Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW,
+    },
+    UI::WindowsAndMessaging::{
+        CreateIconFromResource, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW,
+        PostQuitMessage, RegisterClassW, SendMessageW, SetWindowLongPtrW, TranslateMessage,
+        CW_USEDEFAULT, GWLP_USERDATA, HMENU, WINDOW_EX_STYLE, WM_APP, WM_LBUTTONUP, WM_RBUTTONUP,
+        WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
+    },
+};
+
+const CALLBACK_MSG: u32 = WM_APP + 1;
+const CLOSE_CONSOLE_MSG: u32 = WM_APP + 2;
+const EXIT_APPLICATION_MSG: u32 = WM_APP + 3;
 
 #[derive(Debug)]
 pub enum TrayMessage {
@@ -30,7 +38,7 @@ impl TrayMessage {
             TrayMessage::ExitApplication => EXIT_APPLICATION_MSG,
         };
         unsafe {
-            SendMessageW(hwnd, msg, 0, 0);
+            SendMessageW(hwnd, msg, WPARAM(0), LPARAM(0));
         }
     }
 }
@@ -38,51 +46,53 @@ impl TrayMessage {
 struct WindowData {
     icon: NOTIFYICONDATAW,
     console: Option<Console>,
-    sender: BrightnessMessageSender,
-    status: BrightnessStatusRef,
+    state: StateRef,
     prev_running: bool,
 }
 
 // Blocking call, runs on this thread
-pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
+pub fn run(controller: &BrightnessController) {
     unsafe {
-        let hinstance = GetModuleHandleW(NULL as LPCWSTR);
-        assert_ne!(hinstance, NULL as HINSTANCE);
+        let hinstance = GetModuleHandleW(PWSTR::NULL);
+        assert!(!hinstance.is_null());
 
         let mut window_class: WNDCLASSW = std::mem::MaybeUninit::zeroed().assume_init();
         window_class.lpfnWndProc = Some(tray_window_proc);
         window_class.hInstance = hinstance;
-        window_class.lpszClassName = "TrayHolder".to_wide().as_ptr();
+        let mut name = "TrayHolder".to_wide();
+        window_class.lpszClassName = PWSTR(name.as_mut_ptr());
         let atom = RegisterClassW(&window_class);
         assert_ne!(atom, 0);
 
+        let mut name = "tray".to_wide();
         let hwnd = CreateWindowExW(
-            0,
-            atom as *const u16,
-            "tray".to_wide().as_ptr(),
+            WINDOW_EX_STYLE(0),
+            PWSTR(atom as *mut u16),
+            PWSTR(name.as_mut_ptr()),
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            NULL as HWND,
-            NULL as HMENU,
+            HWND::NULL,
+            HMENU::NULL,
             hinstance,
-            NULL,
+            std::ptr::null_mut(),
         );
-        assert_ne!(hwnd, NULL as HWND);
+        assert!(!hwnd.is_null());
 
-        extern "system" {
-            pub fn WTSRegisterSessionNotification(hwnd: HWND, flags: DWORD) -> BOOL;
-        }
-        assert_eq!(WTSRegisterSessionNotification(hwnd, 0), TRUE);
+        assert!(WTSRegisterSessionNotification(hwnd, 0).as_bool());
 
         let mut asset = Assets::get("icon-256.png")
             .expect("Icon missing")
             .into_owned();
-        let hicon =
-            CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
-        assert_ne!(hicon, NULL as HICON);
+        let hicon = CreateIconFromResource(
+            asset.as_mut_ptr(),
+            asset.len() as u32,
+            BOOL::from(true),
+            0x00030000,
+        );
+        assert!(!hicon.is_null());
 
         let mut data: NOTIFYICONDATAW = std::mem::MaybeUninit::zeroed().assume_init();
         let mut name = "Solar Screen Brightness".to_wide();
@@ -93,22 +103,25 @@ pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
         data.uCallbackMessage = CALLBACK_MSG;
         data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         data.szTip.copy_from_slice(bytes);
-        assert_eq!(Shell_NotifyIconW(NIM_ADD, &mut data), TRUE);
+        assert!(Shell_NotifyIconW(NIM_ADD, &mut data).as_bool());
 
         let mut window_data = Box::new(WindowData {
             icon: data,
             console: None,
-            sender,
-            status,
+            state: controller.state.clone(),
             prev_running: false,
         });
         SetLastError(0);
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, window_data.as_mut() as *mut _ as isize);
-        assert_eq!(GetLastError(), 0, "Failed to set GWLP_USERDATA");
+        assert_eq!(
+            GetLastError(),
+            WIN32_ERROR(0),
+            "Failed to set GWLP_USERDATA"
+        );
 
         let mut msg = std::mem::MaybeUninit::uninit().assume_init();
         loop {
-            let ret = GetMessageW(&mut msg, NULL as HWND, 0, 0);
+            let ret = GetMessageW(&mut msg, HWND::NULL, 0, 0).0;
             match ret {
                 -1 => {
                     panic!("GetMessage failed");
@@ -121,38 +134,29 @@ pub fn run(sender: BrightnessMessageSender, status: BrightnessStatusRef) {
             }
         }
 
-        assert_eq!(Shell_NotifyIconW(NIM_DELETE, &mut window_data.icon), TRUE);
+        assert!(Shell_NotifyIconW(NIM_DELETE, &mut window_data.icon).as_bool());
     }
-}
-
-unsafe fn get_user_data(hwnd: &HWND) -> Option<&mut WindowData> {
-    let user_data = GetWindowLongPtrW(*hwnd, GWLP_USERDATA);
-    if user_data == 0 {
-        return None;
-    }
-    Some(&mut *(user_data as *mut WindowData))
 }
 
 unsafe extern "system" fn tray_window_proc(
     hwnd: HWND,
-    msg: UINT,
+    msg: u32,
     w_param: WPARAM,
     l_param: LPARAM,
 ) -> LRESULT {
     match msg {
-        CALLBACK_MSG => match LOWORD(l_param as DWORD) as u32 {
+        CALLBACK_MSG => match loword(l_param.0 as u32) {
             WM_LBUTTONUP | WM_RBUTTONUP => {
-                let app = get_user_data(&hwnd).unwrap();
-                let hwnd = app.icon.hWnd as usize;
+                let app = get_user_data::<WindowData>(&hwnd).unwrap();
+                let hwnd = app.icon.hWnd;
                 match &app.console {
                     Some(c) => {
                         c.show();
                     }
                     None => {
                         app.console = Some(Console::create(
-                            Box::new(move |msg| msg.send(hwnd as HWND)),
-                            app.sender.clone(),
-                            app.status.clone(),
+                            Box::new(move |msg| msg.send(hwnd)),
+                            app.state.clone(),
                         ));
                     }
                 }
@@ -160,22 +164,23 @@ unsafe extern "system" fn tray_window_proc(
             _ => {}
         },
         CLOSE_CONSOLE_MSG => {
-            let app = get_user_data(&hwnd).unwrap();
+            let app = get_user_data::<WindowData>(&hwnd).unwrap();
             app.console.as_ref().unwrap().hide();
         }
         EXIT_APPLICATION_MSG => {
             PostQuitMessage(0);
         }
         WM_WTSSESSION_CHANGE => {
-            let app = get_user_data(&hwnd).unwrap();
-            match w_param {
+            let app = get_user_data::<WindowData>(&hwnd).unwrap();
+            match w_param.0 as u32 {
                 WTS_SESSION_LOCK => {
-                    app.prev_running = app.status.read().unwrap().is_enabled();
-                    app.sender.send(BrightnessMessage::Disable).unwrap();
+                    let mut state = app.state.write().unwrap();
+                    app.prev_running = state.get_enabled();
+                    state.set_enabled(false);
                 }
                 WTS_SESSION_UNLOCK => {
                     if app.prev_running {
-                        app.sender.send(BrightnessMessage::Enable).unwrap();
+                        app.state.write().unwrap().set_enabled(true);
                     }
                 }
                 _ => {}

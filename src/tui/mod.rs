@@ -1,6 +1,7 @@
-use crate::runner::{
-    BrightnessMessageSender, BrightnessStatusDelegate, BrightnessStatusRef, LastCalculation,
-};
+use crate::config::Config;
+use crate::controller::apply::ApplyResult;
+use crate::controller::state::Observer;
+use crate::controller::StateRef;
 use crate::tray::TrayMessageSender;
 use cursive::event::Event;
 use cursive::{CbSink, Cursive, CursiveExt};
@@ -12,21 +13,20 @@ mod show_status;
 
 pub struct UserData {
     tray: TrayMessageSender,
-    brightness: BrightnessMessageSender,
-    status: BrightnessStatusRef,
+    state: StateRef,
 }
 
-struct Delegate(CbSink);
-impl BrightnessStatusDelegate for Delegate {
-    fn running_change(&self, running: &bool) {
-        let running = *running;
+struct CursiveObserver(CbSink);
+
+impl Observer for CursiveObserver {
+    fn did_set_enabled(&self, running: bool) {
         self.0
             .send(Box::new(move |s| {
                 main_menu::running_change(s, running);
             }))
             .unwrap();
     }
-    fn update_change(&self, update: &LastCalculation) {
+    fn did_set_last_result(&self, update: &ApplyResult) {
         let update = update.clone();
         self.0
             .send(Box::new(move |s| {
@@ -34,30 +34,28 @@ impl BrightnessStatusDelegate for Delegate {
             }))
             .unwrap();
     }
+
+    fn did_set_config(&self, _config: &Config) {}
 }
 
-pub fn run(
-    tray: TrayMessageSender,
-    brightness: BrightnessMessageSender,
-    status: BrightnessStatusRef,
-) {
-    let mut siv = Cursive::crossterm().unwrap();
+pub fn run(tray: TrayMessageSender, state: StateRef) {
+    let mut siv = Cursive::default();
 
     siv.clear_global_callbacks(Event::CtrlChar('c'));
     siv.clear_global_callbacks(Event::Exit);
 
     siv.set_user_data(UserData {
         tray,
-        brightness,
-        status: status.clone(),
+        state: state.clone(),
     });
 
     siv.add_layer(main_menu::create());
-    main_menu::running_change(&mut siv, status.read().unwrap().is_enabled());
+    main_menu::running_change(&mut siv, state.read().unwrap().get_enabled());
 
-    let delegate: Arc<Box<dyn BrightnessStatusDelegate + Send + Sync>> =
-        Arc::new(Box::new(Delegate(siv.cb_sink().clone())));
-    status.write().unwrap().delegate = Arc::downgrade(&delegate);
+    let delegate: Arc<dyn Observer + Send + Sync> =
+        Arc::new(CursiveObserver(siv.cb_sink().clone()));
+
+    state.write().unwrap().register(Arc::downgrade(&delegate));
 
     siv.run();
 }

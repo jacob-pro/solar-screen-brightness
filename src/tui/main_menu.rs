@@ -1,10 +1,10 @@
 use crate::config::Config;
-use crate::runner::BrightnessMessage;
 use crate::tray::TrayMessage;
 use crate::tui::UserData;
 use cursive::align::HAlign;
 use cursive::traits::Nameable;
-use cursive::views::{Dialog, HideableView, NamedView, ScrollView, SelectView};
+use cursive::view::Resizable;
+use cursive::views::{Dialog, HideableView, NamedView, ScrollView, SelectView, TextView};
 use cursive::Cursive;
 use enum_iterator::IntoEnumIterator;
 
@@ -15,7 +15,6 @@ const MAIN_SELECT: &str = "MAIN_MENU_SELECT";
 pub enum MainMenuChoice {
     ShowStatus = 0,
     EditConfig,
-    SaveConfig,
     ReloadConfig,
     ToggleRunning,
     CloseConsole,
@@ -27,11 +26,10 @@ impl MainMenuChoice {
         match self {
             MainMenuChoice::ShowStatus => "Show status",
             MainMenuChoice::EditConfig => "Edit configuration",
-            MainMenuChoice::SaveConfig => "Save configuration",
             MainMenuChoice::ReloadConfig => "Reload configuration",
             MainMenuChoice::ToggleRunning => "null",
             MainMenuChoice::CloseConsole => "Close console",
-            MainMenuChoice::ExitApplication => "Exit Application",
+            MainMenuChoice::ExitApplication => "Exit application",
         }
     }
 }
@@ -66,13 +64,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
     let ud = cursive.user_data::<UserData>().unwrap();
     match choice {
         MainMenuChoice::ShowStatus => {
-            let update = ud
-                .status
-                .read()
-                .unwrap()
-                .last_calculation()
-                .clone()
-                .unwrap();
+            let update = ud.state.read().unwrap().get_last_result().clone();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();
@@ -89,7 +81,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             super::show_status::status_update(cursive, update);
         }
         MainMenuChoice::EditConfig => {
-            let config = ud.status.read().unwrap().config.clone();
+            let config = ud.state.read().unwrap().get_config().clone();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();
@@ -105,26 +97,14 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             cursive.add_layer(view)
         }
         MainMenuChoice::ToggleRunning => {
-            let running = ud.status.read().unwrap().is_enabled();
-            if running {
-                ud.brightness.send(BrightnessMessage::Disable).unwrap();
-            } else {
-                ud.brightness.send(BrightnessMessage::Enable).unwrap();
-            }
-        }
-        MainMenuChoice::SaveConfig => {
-            let config = ud.status.read().unwrap().config.clone();
-            let msg = match config.save() {
-                Ok(_) => "Successfully saved to disk".to_owned(),
-                Err(e) => e.to_string(),
-            };
-            cursive.add_layer(Dialog::info(msg));
+            let mut write = ud.state.write().unwrap();
+            let enabled = write.get_enabled();
+            write.set_enabled(!enabled);
         }
         MainMenuChoice::ReloadConfig => {
             let msg = match Config::load() {
                 Ok(c) => {
-                    ud.status.write().unwrap().config = c;
-                    ud.brightness.send(BrightnessMessage::NewConfig).unwrap();
+                    ud.state.write().unwrap().set_config(c);
                     "Successfully loaded from disk".to_owned()
                 }
                 Err(e) => e,
@@ -135,7 +115,20 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             &(ud.tray)(TrayMessage::CloseConsole);
         }
         MainMenuChoice::ExitApplication => {
-            &(ud.tray)(TrayMessage::ExitApplication);
+            let msg = "Warning: Exiting the application will stop the dynamic brightness \
+            controller from running.\n\nYou may want to consider either closing the console window \
+            or temporarily disabling dynamic brightness?";
+            cursive.add_layer(
+                Dialog::new()
+                    .title("Confirm?")
+                    .content(TextView::new(msg))
+                    .dismiss_button("Cancel")
+                    .button("Exit", |cursive| {
+                        let ud = cursive.user_data::<UserData>().unwrap();
+                        &(ud.tray)(TrayMessage::ExitApplication);
+                    })
+                    .max_width(40),
+            );
         }
     }
 }

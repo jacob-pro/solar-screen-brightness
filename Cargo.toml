@@ -1,24 +1,29 @@
+[workspace]
+members = ["windows-bindings"]
+
 [package]
 name = "solar-screen-brightness"
 version = "0.1.0"
 authors = ["Jacob Halsey <jacob@jhalsey.com>"]
 edition = "2018"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+brightness = { version = "0.2.0", git = "https://github.com/jacob-pro/brightness" }
 chrono = "0.4"
 config = "0.10.1"
-cursive = { default-features = false, features = ["crossterm-backend"], git = "https://github.com/gyscos/cursive" }
+cursive = { default-features = false, features = ["pancurses-backend"], version = "0.16" }
 directories = "2.0"
 enum-iterator = "0.6.0"
+futures = "0.3"
 geocoding = "0.2.0"
 lazy_static = "1.4.0"
 rust-embed = "5.5.1"
 serde = { version = "1.0.110", features = ["derive"] }
 sunrise-sunset-calculator = "0.1.0"
+thiserror = "1.0"
 toml = "0.5"
 validator = "0.10"
 validator_derive = "0.10"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { git = "https://github.com/retep998/winapi-rs", branch = "0.3", features = ["wtsapi32", "consoleapi", "windef", "errhandlingapi", "winerror", "shellapi", "libloaderapi", "physicalmonitorenumerationapi", "highlevelmonitorconfigurationapi", "wingdi", "winuser", "synchapi"] }
+solar-screen-brightness-windows-bindings = { version = "0.1.0", path = "./windows-bindings" }

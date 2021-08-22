@@ -1,5 +1,4 @@
 use crate::config::{Config, Location};
-use crate::runner::BrightnessMessage;
 use crate::tui::UserData;
 use cursive::traits::{Nameable, Resizable};
 use cursive::views::{Button, Dialog, DummyView, EditView, LinearLayout, ListView, NamedView};
@@ -15,7 +14,7 @@ const LONGITUDE: &str = "EDIT_CONFIG_LONGITUDE";
 
 pub fn create<F>(config: Config, completion: F) -> Dialog
 where
-    F: 'static + Fn(&mut Cursive),
+    F: 'static + Fn(&mut Cursive) + Clone,
 {
     let day_brightness = EditView::new()
         .max_content_width(3)
@@ -30,10 +29,16 @@ where
         .content(format!("{}", config.transition_mins))
         .on_submit(on_submit_field);
     let latitude = EditView::new()
-        .content(format!("{:.5}", config.location.latitude))
+        .content(format!(
+            "{:.5}",
+            config.location.as_ref().map(|l| l.latitude).unwrap_or(0.0)
+        ))
         .on_submit(on_submit_field);
     let longitude = EditView::new()
-        .content(format!("{:.5}", config.location.longitude))
+        .content(format!(
+            "{:.5}",
+            config.location.as_ref().map(|l| l.longitude).unwrap_or(0.0)
+        ))
         .on_submit(on_submit_field);
 
     let x = ListView::new()
@@ -52,6 +57,7 @@ where
         .child("Latitude:", NamedView::new(LATITUDE, latitude))
         .child("Longitude:", NamedView::new(LONGITUDE, longitude));
 
+    let c2 = completion.clone();
     Dialog::around(
         LinearLayout::vertical()
             .child(DummyView)
@@ -59,62 +65,84 @@ where
             .child(DummyView)
             .child(Button::new("Find location", geocode_dialog))
             .child(DummyView)
-            .child(Button::new("Apply", on_apply))
+            .child(Button::new("Save", move |cursive| {
+                if attempt_save(cursive) {
+                    c2(cursive);
+                }
+            }))
             .child(DummyView)
-            .child(Button::new("Back", completion)),
+            .child(Button::new("Cancel", completion)),
     )
     .title("Edit Configuration")
 }
 
-fn on_apply(cursive: &mut Cursive) {
-    fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
-        let ud = cursive.user_data::<UserData>().unwrap();
-        let mut config = ud.status.read().unwrap().config.clone();
-        config.brightness_day = cursive
-            .find_name::<EditView>(DAY_BRIGHTNESS)
-            .unwrap()
-            .get_content()
-            .parse()
-            .map_err(|_| "Day Brightness must be a number".to_owned())?;
-        config.brightness_night = cursive
-            .find_name::<EditView>(NIGHT_BRIGHTNESS)
-            .unwrap()
-            .get_content()
-            .parse()
-            .map_err(|_| "Night Brightness must be a number".to_owned())?;
-        config.transition_mins = cursive
-            .find_name::<EditView>(TRANSITION_MINS)
-            .unwrap()
-            .get_content()
-            .parse()
-            .map_err(|_| "Transition minutes must be a number".to_owned())?;
-        config.location.latitude = cursive
+fn attempt_save(cursive: &mut Cursive) -> bool {
+    match create_config(cursive) {
+        Ok(cfg) => {
+            let ud = cursive.user_data::<UserData>().unwrap();
+            ud.state.write().unwrap().set_config(cfg.clone());
+            match cfg.save() {
+                Ok(_) => return true,
+                Err(e) => {
+                    cursive.add_layer(Dialog::info(e.to_string()));
+                }
+            };
+        }
+        Err(e) => {
+            cursive.add_layer(Dialog::info(e));
+        }
+    }
+    false
+}
+
+fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
+    let ud = cursive.user_data::<UserData>().unwrap();
+    let mut config = ud.state.read().unwrap().get_config().clone();
+    config.brightness_day = cursive
+        .find_name::<EditView>(DAY_BRIGHTNESS)
+        .unwrap()
+        .get_content()
+        .parse()
+        .map_err(|_| "Day Brightness must be a number".to_owned())?;
+    config.brightness_night = cursive
+        .find_name::<EditView>(NIGHT_BRIGHTNESS)
+        .unwrap()
+        .get_content()
+        .parse()
+        .map_err(|_| "Night Brightness must be a number".to_owned())?;
+    config.transition_mins = cursive
+        .find_name::<EditView>(TRANSITION_MINS)
+        .unwrap()
+        .get_content()
+        .parse()
+        .map_err(|_| "Transition minutes must be a number".to_owned())?;
+    config.location = Some(Location {
+        latitude: cursive
             .find_name::<EditView>(LATITUDE)
             .unwrap()
             .get_content()
             .parse()
-            .map_err(|_| "Latitude must be a number".to_owned())?;
-        config.location.longitude = cursive
+            .map_err(|_| "Latitude must be a number".to_owned())?,
+        longitude: cursive
             .find_name::<EditView>(LONGITUDE)
             .unwrap()
             .get_content()
             .parse()
-            .map_err(|_| "Longitude must be a number".to_owned())?;
-        config
-            .validate()
-            .map_err(|e: ValidationErrors| e.to_string())?;
-        Ok(config)
-    }
-    let x = create_config(cursive);
-    match x {
+            .map_err(|_| "Longitude must be a number".to_owned())?,
+    });
+    config
+        .validate()
+        .map_err(|e: ValidationErrors| e.to_string())?;
+    Ok(config)
+}
+
+fn on_apply(cursive: &mut Cursive) {
+    let cfg = create_config(cursive);
+    match &cfg {
         Err(e) => {
             cursive.add_layer(Dialog::info(e));
         }
-        Ok(c) => {
-            let ud = cursive.user_data::<UserData>().unwrap();
-            ud.status.write().unwrap().config = c;
-            ud.brightness.send(BrightnessMessage::NewConfig).unwrap();
-        }
+        _ => {}
     };
 }
 

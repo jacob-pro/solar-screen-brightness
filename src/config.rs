@@ -25,9 +25,9 @@ lazy_static! {
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct Location {
     #[validate(range(min = -90, max = 90))]
-    pub latitude: f32,
+    pub latitude: f64,
     #[validate(range(min = -180, max = 180))]
-    pub longitude: f32,
+    pub longitude: f64,
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
@@ -39,7 +39,7 @@ pub struct Config {
     #[validate(range(max = 360))]
     pub transition_mins: u32,
     #[validate]
-    pub location: Location,
+    pub location: Option<Location>,
 }
 
 impl Config {
@@ -65,10 +65,7 @@ impl Default for Config {
             brightness_day: 100,
             brightness_night: 60,
             transition_mins: 40,
-            location: Location {
-                latitude: 0.0,
-                longitude: 0.0,
-            },
+            location: None,
         }
     }
 }
@@ -76,7 +73,7 @@ impl Default for Config {
 impl Location {
     pub fn geocode_address<G>(coder: G, address: &str) -> Result<Self, String>
     where
-        G: geocoding::Forward<f32>,
+        G: geocoding::Forward<f64>,
     {
         let x = coder.forward(address).map_err(|x| match x {
             GeocodingError::Request(r) => format!("{}", r),
