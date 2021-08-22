@@ -30,3 +30,11 @@ Currently windows only, however the [algorithm](https://github.com/jacob-pro/sun
 ![](./screenshots/status.png)
 
 ![](./screenshots/edit_config.png)
+
+
+## Development
+
+### RHEL
+
+`clang ncurses-devel qt5-qtbase-devel`
+`ln -s /usr/bin/qmake-qt5 /usr/bin/qmake`
