@@ -1,7 +1,7 @@
 use crate::controller::apply::{ApplyResult, SolarAndBrightnessResults};
 use chrono::{DateTime, Local};
 use cursive::traits::Nameable;
-use cursive::views::{Button, Dialog, DummyView, LinearLayout, TextView};
+use cursive::views::{Button, Dialog, DummyView, LinearLayout, ScrollView, TextView};
 use cursive::Cursive;
 
 const STATUS_TEXT: &str = "SHOW_STATUS_TEXT";
@@ -13,7 +13,9 @@ where
     Dialog::around(
         LinearLayout::vertical()
             .child(DummyView)
-            .child(TextView::new("null").with_name(STATUS_TEXT))
+            .child(ScrollView::new(
+                TextView::new("null").with_name(STATUS_TEXT),
+            ))
             .child(DummyView)
             .child(Button::new("Back", completion)),
     )

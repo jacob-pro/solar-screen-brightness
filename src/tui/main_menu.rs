@@ -3,7 +3,8 @@ use crate::tray::TrayMessage;
 use crate::tui::UserData;
 use cursive::align::HAlign;
 use cursive::traits::Nameable;
-use cursive::views::{Dialog, HideableView, NamedView, ScrollView, SelectView};
+use cursive::view::Resizable;
+use cursive::views::{Dialog, HideableView, NamedView, ScrollView, SelectView, TextView};
 use cursive::Cursive;
 use enum_iterator::IntoEnumIterator;
 
@@ -28,7 +29,7 @@ impl MainMenuChoice {
             MainMenuChoice::ReloadConfig => "Reload configuration",
             MainMenuChoice::ToggleRunning => "null",
             MainMenuChoice::CloseConsole => "Close console",
-            MainMenuChoice::ExitApplication => "Exit Application",
+            MainMenuChoice::ExitApplication => "Exit application",
         }
     }
 }
@@ -114,7 +115,20 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             &(ud.tray)(TrayMessage::CloseConsole);
         }
         MainMenuChoice::ExitApplication => {
-            &(ud.tray)(TrayMessage::ExitApplication);
+            let msg = "Warning: Exiting the application will stop the dynamic brightness \
+            controller from running.\n\nYou may want to consider either closing the console window \
+            or temporarily disabling dynamic brightness?";
+            cursive.add_layer(
+                Dialog::new()
+                    .title("Confirm?")
+                    .content(TextView::new(msg))
+                    .dismiss_button("Cancel")
+                    .button("Exit", |cursive| {
+                        let ud = cursive.user_data::<UserData>().unwrap();
+                        &(ud.tray)(TrayMessage::ExitApplication);
+                    })
+                    .max_width(40),
+            );
         }
     }
 }
