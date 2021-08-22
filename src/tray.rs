@@ -1,9 +1,8 @@
 use crate::assets::Assets;
 use crate::console::Console;
 use crate::controller::{BrightnessController, StateRef};
-use crate::wide::{get_user_data, WideString};
+use crate::wide::{get_user_data, loword, WideString};
 
-use crate::wide;
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
     System::Diagnostics::Debug::{GetLastError, SetLastError, WIN32_ERROR},
@@ -146,7 +145,7 @@ unsafe extern "system" fn tray_window_proc(
     l_param: LPARAM,
 ) -> LRESULT {
     match msg {
-        CALLBACK_MSG => match wide::loword(l_param.0 as u32) {
+        CALLBACK_MSG => match loword(l_param.0 as u32) {
             WM_LBUTTONUP | WM_RBUTTONUP => {
                 let app = get_user_data::<WindowData>(&hwnd).unwrap();
                 let hwnd = app.icon.hWnd;
