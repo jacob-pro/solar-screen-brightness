@@ -51,14 +51,16 @@ pub fn run(controller: &BrightnessController) {
         let mut window_class: WNDCLASSW = std::mem::MaybeUninit::zeroed().assume_init();
         window_class.lpfnWndProc = Some(tray_window_proc);
         window_class.hInstance = hinstance;
-        window_class.lpszClassName = "TrayHolder".to_wide().as_ptr();
+        let name = "TrayHolder".to_wide();
+        window_class.lpszClassName = name.as_ptr();
         let atom = RegisterClassW(&window_class);
         assert_ne!(atom, 0);
 
+        let name = "tray".to_wide();
         let hwnd = CreateWindowExW(
             0,
             atom as *const u16,
-            "tray".to_wide().as_ptr(),
+            name.as_ptr(),
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,

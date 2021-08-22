@@ -2,74 +2,122 @@ use crate::assets::Assets;
 use crate::controller::StateRef;
 use crate::tray::TrayMessageSender;
 use crate::tui::run;
-use crate::wide::WideString;
-use winapi::shared::minwindef::*;
-use winapi::shared::ntdef::NULL;
-use winapi::shared::windef::*;
-use winapi::um::consoleapi::AllocConsole;
-use winapi::um::wincon::{FreeConsole, GetConsoleWindow, SetConsoleTitleW};
-use winapi::um::winuser::*;
+use crate::wide::{wchar_to_string, WideString};
 
-pub struct Console {}
+use solar_screen_brightness_windows_bindings::Windows::Win32::{
+    Foundation::{BOOL, HWND, LPARAM, PWSTR, WPARAM},
+    System::Threading::GetCurrentProcessId,
+    UI::WindowsAndMessaging::{
+        BringWindowToTop, CreateIconFromResource, EnumWindows, GetClassNameW,
+        GetWindowThreadProcessId, SendMessageW, SetForegroundWindow, SetWindowTextW, ShowWindow,
+        ICON_BIG, ICON_SMALL, SW_HIDE, SW_RESTORE, WM_SETICON,
+    },
+};
+
+pub struct Console {
+    handle: HWND,
+}
 
 impl Console {
     pub fn create(tray: TrayMessageSender, state: StateRef) -> Self {
-        unsafe {
-            assert_eq!(AllocConsole(), TRUE);
-            let console_window = GetConsoleWindow();
-            assert_ne!(console_window, NULL as HWND);
-            let console_menu = GetSystemMenu(console_window, FALSE);
-            EnableMenuItem(console_menu, SC_CLOSE as u32, MF_ENABLED | MF_GRAYED);
-            SetConsoleTitleW("Solar Screen Brightness".to_wide().as_ptr());
-
-            let mut asset = Assets::get("icon-256.png")
-                .expect("Icon missing")
-                .into_owned();
-            let hicon =
-                CreateIconFromResource(asset.as_mut_ptr(), asset.len() as u32, TRUE, 0x00030000);
-            assert_ne!(hicon, NULL as HICON);
-            SendMessageW(
-                console_window,
-                WM_SETICON,
-                ICON_BIG as WPARAM,
-                hicon as LPARAM,
-            );
-            SendMessageW(
-                console_window,
-                WM_SETICON,
-                ICON_SMALL as WPARAM,
-                hicon as LPARAM,
-            );
-        }
         std::thread::spawn(move || {
             run(tray, state);
         });
-        Console {}
+        let console = Console {
+            handle: find_console_handle(),
+        };
+        console.configure();
+        console.show();
+        console
+    }
+
+    fn configure(&self) {
+        unsafe {
+            let mut title = "Solar Screen Brightness".to_wide();
+            SetWindowTextW(self.handle, PWSTR(title.as_mut_ptr()));
+            let mut asset = Assets::get("icon-256.png")
+                .expect("Icon missing")
+                .into_owned();
+            let hicon = CreateIconFromResource(
+                asset.as_mut_ptr(),
+                asset.len() as u32,
+                BOOL::from(true),
+                0x00030000,
+            );
+            assert!(!hicon.is_null());
+            SendMessageW(
+                self.handle,
+                WM_SETICON,
+                WPARAM(ICON_BIG as usize),
+                LPARAM(hicon.0),
+            );
+            SendMessageW(
+                self.handle,
+                WM_SETICON,
+                WPARAM(ICON_SMALL as usize),
+                LPARAM(hicon.0),
+            );
+        }
     }
 
     pub fn show(&self) {
         unsafe {
-            let console_window = GetConsoleWindow();
-            assert_ne!(console_window, NULL as HWND);
-            ShowWindow(console_window, SW_RESTORE);
-            BringWindowToTop(console_window);
-            SetForegroundWindow(console_window);
+            ShowWindow(self.handle, SW_RESTORE);
+            BringWindowToTop(self.handle);
+            SetForegroundWindow(self.handle);
         }
     }
 
     pub fn hide(&self) {
         unsafe {
-            let console_window = GetConsoleWindow();
-            assert_ne!(console_window, NULL as HWND);
-            ShowWindow(console_window, SW_HIDE);
+            ShowWindow(self.handle, SW_HIDE);
         }
     }
 }
 
-impl Drop for Console {
-    fn drop(&mut self) {
-        unsafe {
-            assert_eq!(FreeConsole(), TRUE);
+// unsafe extern "system" fn tray_window_proc(
+//     hwnd: HWND,
+//     msg: u32,
+//     w_param: WPARAM,
+//     l_param: LPARAM,
+// ) -> LRESULT {
+//     println!("{}", msg);
+//     return DefWindowProcW(hwnd, msg, w_param, l_param);
+// }
+
+struct FindParam {
+    pid: u32,
+    handle: HWND,
+}
+
+fn find_console_handle() -> HWND {
+    unsafe {
+        let mut find = FindParam {
+            pid: GetCurrentProcessId(),
+            handle: HWND::NULL,
+        };
+        while find.handle.is_null() {
+            println!("trying");
+            EnumWindows(Some(enum_proc), LPARAM((&mut find as *mut _) as isize));
+        }
+        println!("got");
+        find.handle
+    }
+}
+
+unsafe extern "system" fn enum_proc(window: HWND, arg: LPARAM) -> BOOL {
+    let mut find = &mut *(arg.0 as *mut FindParam);
+    let mut pid = 0;
+    GetWindowThreadProcessId(window, &mut pid);
+    if pid == find.pid {
+        let mut buffer: Vec<u16> = Vec::with_capacity(120);
+        let len = GetClassNameW(window, PWSTR(buffer.as_mut_ptr()), buffer.capacity() as i32);
+        buffer.set_len(len as usize);
+        let class_name = wchar_to_string(buffer.as_slice());
+        if class_name == "Curses_App" {
+            find.handle = window;
+            return false.into();
         }
     }
+    true.into()
 }
