@@ -80,7 +80,7 @@ fn attempt_save(cursive: &mut Cursive) -> bool {
     match create_config(cursive) {
         Ok(cfg) => {
             let ud = cursive.user_data::<UserData>().unwrap();
-            ud.state.write().unwrap().set_config(cfg.clone());
+            ud.controller.set_config(cfg.clone());
             match cfg.save() {
                 Ok(_) => return true,
                 Err(e) => {
@@ -97,7 +97,7 @@ fn attempt_save(cursive: &mut Cursive) -> bool {
 
 fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
     let ud = cursive.user_data::<UserData>().unwrap();
-    let mut config = ud.state.read().unwrap().get_config().clone();
+    let mut config = ud.controller.get_config();
     config.brightness_day = cursive
         .find_name::<EditView>(DAY_BRIGHTNESS)
         .unwrap()

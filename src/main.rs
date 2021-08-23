@@ -6,11 +6,12 @@ extern crate validator_derive;
 mod assets;
 mod brightness;
 mod config;
-// mod console;
+mod console;
 mod controller;
 mod tray;
 mod tui;
-// mod wide;
+#[cfg(target_os = "windows")]
+mod wide;
 
 use crate::config::Config;
 use crate::controller::BrightnessController;
@@ -33,7 +34,7 @@ fn main() {
     let config = Config::load().ok().unwrap_or_default();
     let mut controller = BrightnessController::new(config);
     controller.start();
-    tray::run(&controller);
+    tray::run(controller);
 }
 
 // fn already_running() -> bool {

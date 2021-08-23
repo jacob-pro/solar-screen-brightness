@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::tray::TrayMessage;
 use crate::tui::UserData;
 use cursive::align::HAlign;
 use cursive::traits::Nameable;
@@ -64,7 +63,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
     let ud = cursive.user_data::<UserData>().unwrap();
     match choice {
         MainMenuChoice::ShowStatus => {
-            let update = ud.state.read().unwrap().get_last_result().clone();
+            let update = ud.controller.get_last_result();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();
@@ -81,7 +80,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             super::show_status::status_update(cursive, update);
         }
         MainMenuChoice::EditConfig => {
-            let config = ud.state.read().unwrap().get_config().clone();
+            let config = ud.controller.get_config().clone();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();
@@ -97,14 +96,13 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             cursive.add_layer(view)
         }
         MainMenuChoice::ToggleRunning => {
-            let mut write = ud.state.write().unwrap();
-            let enabled = write.get_enabled();
-            write.set_enabled(!enabled);
+            let enabled = ud.controller.get_enabled();
+            ud.controller.set_enabled(!enabled);
         }
         MainMenuChoice::ReloadConfig => {
             let msg = match Config::load() {
                 Ok(c) => {
-                    ud.state.write().unwrap().set_config(c);
+                    ud.controller.set_config(c);
                     "Successfully loaded from disk".to_owned()
                 }
                 Err(e) => e,
@@ -112,7 +110,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             cursive.add_layer(Dialog::info(msg));
         }
         MainMenuChoice::CloseConsole => {
-            &(ud.tray)(TrayMessage::CloseConsole);
+            ud.tray.close_console();
         }
         MainMenuChoice::ExitApplication => {
             let msg = "Warning: Exiting the application will stop the dynamic brightness \
@@ -125,7 +123,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
                     .dismiss_button("Cancel")
                     .button("Exit", |cursive| {
                         let ud = cursive.user_data::<UserData>().unwrap();
-                        &(ud.tray)(TrayMessage::ExitApplication);
+                        ud.tray.exit_application();
                     })
                     .max_width(40),
             );

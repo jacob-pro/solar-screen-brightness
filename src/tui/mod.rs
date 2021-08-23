@@ -1,8 +1,7 @@
 use crate::config::Config;
 use crate::controller::apply::ApplyResult;
-use crate::controller::state::Observer;
-use crate::controller::StateRef;
-use crate::tray::TrayMessageSender;
+use crate::controller::{Observer, BrightnessController};
+use crate::tray::{TrayApplicationHandle};
 use cursive::event::Event;
 use cursive::{CbSink, Cursive, CursiveExt};
 use std::sync::Arc;
@@ -12,8 +11,8 @@ mod main_menu;
 mod show_status;
 
 pub struct UserData {
-    tray: TrayMessageSender,
-    state: StateRef,
+    tray: Box<dyn TrayApplicationHandle>,
+    controller: BrightnessController,
 }
 
 struct CursiveObserver(CbSink);
@@ -38,7 +37,7 @@ impl Observer for CursiveObserver {
     fn did_set_config(&self, _config: &Config) {}
 }
 
-pub fn run(tray: TrayMessageSender, state: StateRef) {
+pub fn run(tray: Box<dyn TrayApplicationHandle>, controller: BrightnessController) {
     let mut siv = Cursive::default();
 
     siv.clear_global_callbacks(Event::CtrlChar('c'));
@@ -46,16 +45,16 @@ pub fn run(tray: TrayMessageSender, state: StateRef) {
 
     siv.set_user_data(UserData {
         tray,
-        state: state.clone(),
+        controller: controller.clone(),
     });
 
     siv.add_layer(main_menu::create());
-    main_menu::running_change(&mut siv, state.read().unwrap().get_enabled());
+    main_menu::running_change(&mut siv, controller.get_enabled());
 
     let delegate: Arc<dyn Observer + Send + Sync> =
         Arc::new(CursiveObserver(siv.cb_sink().clone()));
 
-    state.write().unwrap().register(Arc::downgrade(&delegate));
+    controller.register(Arc::downgrade(&delegate));
 
     siv.run();
 }

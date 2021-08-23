@@ -1,11 +1,11 @@
 use crate::brightness::calculate_brightness;
-use crate::controller::StateRef;
 use brightness::{Brightness, BrightnessDevice};
 use futures::{executor::block_on, StreamExt};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sunrise_sunset_calculator::binding::unix_t;
 use thiserror::Error;
+use crate::controller::BrightnessControllerInner;
 
 #[derive(Clone, Debug)]
 pub struct SolarAndBrightnessResults {
@@ -31,9 +31,9 @@ pub enum ApplyResult {
     None,
 }
 
-pub fn apply(state: &StateRef) -> (ApplyResult, unix_t) {
-    // Clone the latest config and apply it
-    let config = state.read().unwrap().get_config().clone();
+pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (ApplyResult, unix_t) {
+    // Clone the latest config and apply it, don't hold lock
+    let config = inner_ref.read().unwrap().config.clone();
     // Calculate sunrise and brightness
     match &config.location {
         None => return (ApplyResult::Error(ApplyError::NoLocationSet), unix_t::MAX),
@@ -57,7 +57,7 @@ pub fn apply(state: &StateRef) -> (ApplyResult, unix_t) {
                 visible: ssr.visible,
             };
 
-            if state.read().unwrap().get_enabled() {
+            if inner_ref.read().unwrap().enabled {
                 let mut errors = vec![];
                 let devices = block_on(get_devices());
                 for dev in devices {
