@@ -1,6 +1,6 @@
 use crate::assets::Assets;
-use crate::controller::StateRef;
-use crate::tray::TrayMessageSender;
+use crate::controller::BrightnessController;
+use crate::tray::TrayApplicationHandle;
 use crate::tui::run;
 use crate::wide::{get_user_data, WideString};
 
@@ -23,9 +23,9 @@ struct WindowData {
 pub struct Console(Box<WindowData>);
 
 impl Console {
-    pub fn create(tray: TrayMessageSender, state: StateRef) -> Self {
+    pub fn create(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
         std::thread::spawn(move || {
-            run(tray, state);
+            run(tray, controller);
         });
         let handle = await_handle();
         let mut console = unsafe {

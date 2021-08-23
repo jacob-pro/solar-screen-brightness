@@ -1,15 +1,13 @@
 use crate::assets::Assets;
-use crate::controller::{BrightnessController};
-use qt_widgets::{QSystemTrayIcon, QApplication, QMenu, SlotOfActivationReason, QAction};
+use crate::controller::BrightnessController;
+use qt_core::{qs, SlotNoArgs};
 use qt_gui::{QIcon, QPixmap};
-use qt_core::{SlotNoArgs, qs};
+use qt_widgets::{QAction, QApplication, QMenu, QSystemTrayIcon, SlotOfActivationReason};
 use std::process::Command;
-
 
 // Blocking call, runs on this thread
 pub fn run(controller: BrightnessController) {
     QApplication::init(|_| unsafe {
-
         assert!(QSystemTrayIcon::is_system_tray_available());
         let tray = QSystemTrayIcon::new();
 
@@ -47,4 +45,3 @@ pub fn run(controller: BrightnessController) {
         QApplication::exec()
     });
 }
-

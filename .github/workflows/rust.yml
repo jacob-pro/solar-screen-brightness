@@ -30,12 +30,6 @@ jobs:
       - name: Cargo Test
         run: cargo test
 
-
-  check_style:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
       - name: Cargo Format Check
         run: cargo fmt -- --check
 

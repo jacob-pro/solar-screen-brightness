@@ -1,7 +1,8 @@
 use crate::assets::Assets;
 use crate::console::Console;
-use crate::controller::{BrightnessController, StateRef};
+use crate::controller::BrightnessController;
 use crate::wide::{get_user_data, loword, WideString};
+use std::panic::PanicInfo;
 
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
@@ -13,9 +14,10 @@ use solar_screen_brightness_windows_bindings::Windows::Win32::{
     },
     UI::WindowsAndMessaging::{
         CreateIconFromResource, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW,
-        PostQuitMessage, RegisterClassW, SendMessageW, SetWindowLongPtrW, TranslateMessage,
-        CW_USEDEFAULT, GWLP_USERDATA, HMENU, WINDOW_EX_STYLE, WM_APP, WM_LBUTTONUP, WM_RBUTTONUP,
-        WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
+        MessageBoxW, PostQuitMessage, RegisterClassW, SendMessageW, SetWindowLongPtrW,
+        TranslateMessage, CW_USEDEFAULT, GWLP_USERDATA, HMENU, MB_ICONSTOP, MB_OK, WINDOW_EX_STYLE,
+        WM_APP, WM_LBUTTONUP, WM_RBUTTONUP, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW,
+        WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
     },
 };
 
@@ -23,39 +25,20 @@ const CALLBACK_MSG: u32 = WM_APP + 1;
 const CLOSE_CONSOLE_MSG: u32 = WM_APP + 2;
 const EXIT_APPLICATION_MSG: u32 = WM_APP + 3;
 
-#[derive(Debug)]
-pub enum TrayMessage {
-    CloseConsole,
-    ExitApplication,
-}
-
-pub type TrayMessageSender = Box<dyn Fn(TrayMessage) + Send + Sync>;
-
-impl TrayMessage {
-    fn send(&self, hwnd: HWND) {
-        let msg = match &self {
-            TrayMessage::CloseConsole => CLOSE_CONSOLE_MSG,
-            TrayMessage::ExitApplication => EXIT_APPLICATION_MSG,
-        };
-        unsafe {
-            SendMessageW(hwnd, msg, WPARAM(0), LPARAM(0));
-        }
-    }
-}
-
 struct WindowData {
-    icon: NOTIFYICONDATAW,
+    tray_icon: NOTIFYICONDATAW,
     console: Option<Console>,
-    state: StateRef,
+    controller: BrightnessController,
     prev_running: bool,
 }
 
 // Blocking call, runs on this thread
-pub fn run(controller: &BrightnessController) {
+pub fn run(controller: BrightnessController) {
+    std::panic::set_hook(Box::new(handle_panic));
     unsafe {
+        // Create Window Class
         let hinstance = GetModuleHandleW(PWSTR::NULL);
         assert!(!hinstance.is_null());
-
         let mut window_class: WNDCLASSW = std::mem::MaybeUninit::zeroed().assume_init();
         window_class.lpfnWndProc = Some(tray_window_proc);
         window_class.hInstance = hinstance;
@@ -64,6 +47,7 @@ pub fn run(controller: &BrightnessController) {
         let atom = RegisterClassW(&window_class);
         assert_ne!(atom, 0);
 
+        // Create Window
         let mut name = "tray".to_wide();
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
@@ -81,8 +65,10 @@ pub fn run(controller: &BrightnessController) {
         );
         assert!(!hwnd.is_null());
 
+        // Register for Session Notifications
         assert!(WTSRegisterSessionNotification(hwnd, 0).as_bool());
 
+        // Create hicon
         let mut asset = Assets::get("icon-256.png")
             .expect("Icon missing")
             .into_owned();
@@ -94,6 +80,7 @@ pub fn run(controller: &BrightnessController) {
         );
         assert!(!hicon.is_null());
 
+        // Create tray icon
         let mut data: NOTIFYICONDATAW = std::mem::MaybeUninit::zeroed().assume_init();
         let mut name = "Solar Screen Brightness".to_wide();
         name.resize(data.szTip.len(), 0);
@@ -105,10 +92,11 @@ pub fn run(controller: &BrightnessController) {
         data.szTip.copy_from_slice(bytes);
         assert!(Shell_NotifyIconW(NIM_ADD, &mut data).as_bool());
 
+        // Register Window data
         let mut window_data = Box::new(WindowData {
-            icon: data,
+            tray_icon: data,
             console: None,
-            state: controller.state.clone(),
+            controller: controller,
             prev_running: false,
         });
         SetLastError(0);
@@ -119,6 +107,7 @@ pub fn run(controller: &BrightnessController) {
             "Failed to set GWLP_USERDATA"
         );
 
+        // Start run loop
         let mut msg = std::mem::MaybeUninit::uninit().assume_init();
         loop {
             let ret = GetMessageW(&mut msg, HWND::NULL, 0, 0).0;
@@ -134,7 +123,8 @@ pub fn run(controller: &BrightnessController) {
             }
         }
 
-        assert!(Shell_NotifyIconW(NIM_DELETE, &mut window_data.icon).as_bool());
+        // Cleanup
+        assert!(Shell_NotifyIconW(NIM_DELETE, &mut window_data.tray_icon).as_bool());
     }
 }
 
@@ -148,15 +138,15 @@ unsafe extern "system" fn tray_window_proc(
         CALLBACK_MSG => match loword(l_param.0 as u32) {
             WM_LBUTTONUP | WM_RBUTTONUP => {
                 let app = get_user_data::<WindowData>(&hwnd).unwrap();
-                let hwnd = app.icon.hWnd;
+                let hwnd = app.tray_icon.hWnd;
                 match &app.console {
                     Some(c) => {
                         c.show();
                     }
                     None => {
                         app.console = Some(Console::create(
-                            Box::new(move |msg| msg.send(hwnd)),
-                            app.state.clone(),
+                            TrayApplicationHandle(hwnd),
+                            app.controller.clone(),
                         ));
                     }
                 }
@@ -174,13 +164,12 @@ unsafe extern "system" fn tray_window_proc(
             let app = get_user_data::<WindowData>(&hwnd).unwrap();
             match w_param.0 as u32 {
                 WTS_SESSION_LOCK => {
-                    let mut state = app.state.write().unwrap();
-                    app.prev_running = state.get_enabled();
-                    state.set_enabled(false);
+                    app.prev_running = app.controller.get_enabled();
+                    app.controller.set_enabled(false);
                 }
                 WTS_SESSION_UNLOCK => {
                     if app.prev_running {
-                        app.state.write().unwrap().set_enabled(true);
+                        app.controller.set_enabled(true);
                     }
                 }
                 _ => {}
@@ -189,4 +178,36 @@ unsafe extern "system" fn tray_window_proc(
         _ => {}
     }
     return DefWindowProcW(hwnd, msg, w_param, l_param);
+}
+
+pub struct TrayApplicationHandle(HWND);
+
+impl TrayApplicationHandle {
+    fn send_message(&self, msg: u32) {
+        unsafe {
+            SendMessageW(self.0, msg, WPARAM(0), LPARAM(0));
+        }
+    }
+
+    pub fn close_console(&self) {
+        self.send_message(CLOSE_CONSOLE_MSG);
+    }
+
+    pub fn exit_application(&self) {
+        self.send_message(EXIT_APPLICATION_MSG);
+    }
+}
+
+fn handle_panic(info: &PanicInfo) {
+    unsafe {
+        let mut title = "Fatal Error".to_wide();
+        let mut text = format!("{}", info).as_str().to_wide();
+        MessageBoxW(
+            HWND::NULL,
+            PWSTR(text.as_mut_ptr()),
+            PWSTR(title.as_mut_ptr()),
+            MB_OK | MB_ICONSTOP,
+        );
+        std::process::exit(1);
+    }
 }

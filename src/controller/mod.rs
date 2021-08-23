@@ -31,14 +31,13 @@ struct BrightnessControllerInner {
 }
 
 impl BrightnessController {
-
     pub fn new(config: Config) -> Self {
         Self(Arc::new(RwLock::new(BrightnessControllerInner {
             last_result: ApplyResult::None,
             enabled: true,
             config,
             observers: vec![],
-            tx: None
+            tx: None,
         })))
     }
 
@@ -76,6 +75,7 @@ impl BrightnessController {
         }
     }
 
+    #[allow(unused)]
     pub fn stop(&self) {
         self.0.write().unwrap().stop();
     }
@@ -101,6 +101,11 @@ impl BrightnessController {
         self.0.write().unwrap().register(o);
     }
 
+    #[allow(unused)]
+    pub fn unregister(&self, o: Weak<dyn Observer + Send + Sync>) {
+        self.0.write().unwrap().unregister(o);
+    }
+
     /// Enable or disable solar screen brightness, returns the previous value
     pub fn set_enabled(&mut self, enabled: bool) -> bool {
         self.0.write().unwrap().set_enabled(enabled)
@@ -110,11 +115,9 @@ impl BrightnessController {
     pub fn set_config(&mut self, config: Config) -> Config {
         self.0.write().unwrap().set_config(config)
     }
-
 }
 
 impl BrightnessControllerInner {
-
     fn stop(&mut self) {
         let tx = std::mem::take(&mut self.tx);
         tx.map(|tx| {
@@ -127,7 +130,6 @@ impl BrightnessControllerInner {
         self.observers.push(o);
     }
 
-    #[allow(unused)]
     fn unregister(&mut self, o: Weak<dyn Observer + Send + Sync>) {
         let observers = std::mem::take(&mut self.observers);
         self.observers = observers
@@ -139,7 +141,9 @@ impl BrightnessControllerInner {
     fn set_enabled(&mut self, enabled: bool) -> bool {
         let before = self.enabled;
         self.enabled = enabled;
-        self.tx.as_ref().map(|tx| tx.send(Notification::Refresh).unwrap());
+        self.tx
+            .as_ref()
+            .map(|tx| tx.send(Notification::Refresh).unwrap());
         self.clean_observers();
         self.notify_observers(|o| o.did_set_enabled(enabled));
         before
@@ -147,7 +151,9 @@ impl BrightnessControllerInner {
 
     fn set_config(&mut self, config: Config) -> Config {
         let before = std::mem::replace(&mut self.config, config);
-        self.tx.as_ref().map(|tx| tx.send(Notification::Refresh).unwrap());
+        self.tx
+            .as_ref()
+            .map(|tx| tx.send(Notification::Refresh).unwrap());
         self.clean_observers();
         self.notify_observers(|o| o.did_set_config(&self.config));
         before
@@ -168,8 +174,8 @@ impl BrightnessControllerInner {
     }
 
     fn notify_observers<F>(&self, f: F)
-        where
-            F: Fn(Arc<dyn Observer + Send + Sync>),
+    where
+        F: Fn(Arc<dyn Observer + Send + Sync>),
     {
         self.observers.iter().for_each(|p| match p.upgrade() {
             None => {}

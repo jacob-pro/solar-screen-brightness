@@ -1,11 +1,11 @@
 use crate::brightness::calculate_brightness;
+use crate::controller::BrightnessControllerInner;
 use brightness::{Brightness, BrightnessDevice};
 use futures::{executor::block_on, StreamExt};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sunrise_sunset_calculator::binding::unix_t;
 use thiserror::Error;
-use crate::controller::BrightnessControllerInner;
 
 #[derive(Clone, Debug)]
 pub struct SolarAndBrightnessResults {
