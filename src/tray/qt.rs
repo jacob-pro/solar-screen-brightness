@@ -1,14 +1,26 @@
 use crate::assets::Assets;
 use crate::controller::BrightnessController;
-use qt_core::{qs, SlotNoArgs};
+use cpp_core::{Ptr, StaticUpcast};
+use qt_core::{qs, slot, QBox, QObject, QPtr, SlotOfBool};
 use qt_gui::{QIcon, QPixmap};
-use qt_widgets::{QAction, QApplication, QMenu, QSystemTrayIcon, SlotOfActivationReason};
+use qt_widgets::{QAction, QApplication, QMenu, QSystemTrayIcon};
 use std::process::Command;
+use std::rc::Rc;
 
-// Blocking call, runs on this thread
-pub fn run(controller: BrightnessController) {
-    QApplication::init(|_| unsafe {
-        assert!(QSystemTrayIcon::is_system_tray_available());
+struct TrayApplication {
+    tray: QBox<QSystemTrayIcon>,
+    menu: QBox<QMenu>,
+    action: QPtr<QAction>,
+}
+
+impl StaticUpcast<QObject> for TrayApplication {
+    unsafe fn static_upcast(ptr: Ptr<Self>) -> Ptr<QObject> {
+        ptr.tray.as_ptr().static_upcast()
+    }
+}
+
+impl TrayApplication {
+    unsafe fn new() -> Rc<Self> {
         let tray = QSystemTrayIcon::new();
 
         // Set up the icon
@@ -25,23 +37,34 @@ pub fn run(controller: BrightnessController) {
         let menu = QMenu::new();
         let action = menu.add_action_q_string(&qs("Open console"));
         tray.set_context_menu(&menu);
-
-        let c2 = controller.clone();
-        action.triggered().connect(&SlotNoArgs::new(&tray, move || {
-            let t = Command::new("gnome-terminal")
-                .spawn()
-                .expect("failed to execute process");
-
-            // let x = c2.clone();
-            // std::thread::spawn(move || {
-            //     crate::tui::run(Box::new(|s| {
-            //
-            //     }), x);
-            // });
-            // println!("helloooo");
-        }));
-
         tray.show();
+
+        let this = Rc::new(Self { tray, menu, action });
+        this.action
+            .triggered()
+            .connect(&this.slot_on_action_triggered());
+        this
+    }
+
+    #[slot(SlotOfBool)]
+    unsafe fn on_action_triggered(self: &Rc<Self>, _: bool) {
+        println!("console opened");
+    }
+}
+
+// Blocking call, runs on this thread
+pub fn run(controller: BrightnessController) {
+    QApplication::init(|_| unsafe {
+        assert!(QSystemTrayIcon::is_system_tray_available());
+        let _tray = TrayApplication::new();
         QApplication::exec()
     });
+}
+
+pub struct TrayApplicationHandle;
+
+impl TrayApplicationHandle {
+    pub fn close_console(&self) {}
+
+    pub fn exit_application(&self) {}
 }

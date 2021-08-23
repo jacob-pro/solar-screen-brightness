@@ -2089,6 +2089,7 @@ dependencies = [
  "brightness",
  "chrono",
  "config",
+ "cpp_core",
  "cursive",
  "directories",
  "enum-iterator",
