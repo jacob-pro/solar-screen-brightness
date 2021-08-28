@@ -1,7 +1,7 @@
 use crate::assets::Assets;
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
-use crate::tui::run;
+use crate::tui::run_cursive;
 use crate::wide::{get_user_data, WideString};
 
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
@@ -50,7 +50,7 @@ impl ConsoleImpl {
         let tray = self.tray.clone();
         let controller = self.controller.clone();
         std::thread::spawn(move || {
-            run(tray, controller);
+            run_cursive(tray, controller);
         });
         let handle = await_handle();
         let mut data = unsafe {

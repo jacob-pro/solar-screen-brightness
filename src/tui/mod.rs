@@ -37,7 +37,7 @@ impl Observer for CursiveObserver {
     fn did_set_config(&self, _config: &Config) {}
 }
 
-pub fn run(tray: TrayApplicationHandle, controller: BrightnessController) {
+pub fn run_cursive(tray: TrayApplicationHandle, controller: BrightnessController) {
     let mut siv = Cursive::default();
 
     siv.clear_global_callbacks(Event::CtrlChar('c'));
