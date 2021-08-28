@@ -1,16 +1,22 @@
 use crate::assets::Assets;
+use crate::console::Console;
 use crate::controller::BrightnessController;
+use crate::tray::TrayApplicationHandle;
 use cpp_core::{Ptr, StaticUpcast};
-use qt_core::{qs, slot, QBox, QObject, QPtr, SlotOfBool};
+use qt_core::{qs, slot, QBox, QObject, QPtr, QTimer, SlotOfBool, SlotNoArgs, QCoreApplication};
 use qt_gui::{QIcon, QPixmap};
 use qt_widgets::{QAction, QApplication, QMenu, QSystemTrayIcon};
-use std::process::Command;
+use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
 
+#[allow(unused)]
 struct TrayApplication {
     tray: QBox<QSystemTrayIcon>,
     menu: QBox<QMenu>,
     action: QPtr<QAction>,
+    rx: Receiver<Message>,
+    console: RefCell<Console>,
 }
 
 impl StaticUpcast<QObject> for TrayApplication {
@@ -20,51 +26,99 @@ impl StaticUpcast<QObject> for TrayApplication {
 }
 
 impl TrayApplication {
-    unsafe fn new() -> Rc<Self> {
-        let tray = QSystemTrayIcon::new();
+    unsafe fn new(controller: BrightnessController) -> Rc<Self> {
+        let tray_icon = QSystemTrayIcon::new();
 
         // Set up the icon
-        let mut asset = Assets::get("icon-256.png")
+        let asset = Assets::get("icon-256.png")
             .expect("Icon missing")
             .into_owned();
         let pixmap = QPixmap::new();
         assert!(pixmap.load_from_data_uchar_uint(asset.as_ptr(), asset.len() as u32));
         let qicon = QIcon::new();
         qicon.add_pixmap_1a(&pixmap);
-        tray.set_icon(&qicon);
+        tray_icon.set_icon(&qicon);
 
         // Set up the menu
         let menu = QMenu::new();
         let action = menu.add_action_q_string(&qs("Open console"));
-        tray.set_context_menu(&menu);
-        tray.show();
+        tray_icon.set_context_menu(&menu);
+        tray_icon.show();
 
-        let this = Rc::new(Self { tray, menu, action });
+        let (tx, rx) = sync_channel::<Message>(0);
+        let handle = TrayApplicationHandle(Handle(tx));
+        let console = Console::new(handle, controller);
+
+        let this = Rc::new(Self {
+            tray: tray_icon,
+            menu,
+            action,
+            rx,
+            console: RefCell::new(console),
+        });
+
+        let timer = QTimer::new_1a(&this.tray);
         this.action
             .triggered()
             .connect(&this.slot_on_action_triggered());
+        timer.timeout().connect(&this.slot_on_event_loop());
+        timer.start_1a(0);
+
         this
     }
 
     #[slot(SlotOfBool)]
     unsafe fn on_action_triggered(self: &Rc<Self>, _: bool) {
-        println!("console opened");
+        self.console.borrow_mut().show();
+    }
+
+    #[slot(SlotNoArgs)]
+    unsafe fn on_event_loop(self: &Rc<Self>) {
+        match self.rx.try_recv() {
+            Ok(message) => {
+                match message  {
+                    Message::CloseConsole => {
+                        self.console.borrow_mut().hide();
+                    }
+                    Message::ExitApplication => {
+                        QCoreApplication::quit();
+                    }
+                }
+            }
+            Err(e) => {
+                match e {
+                    TryRecvError::Empty => {}
+                    TryRecvError::Disconnected => {
+                        panic!("Tray Handle disconnected");
+                    }
+                }
+            }
+        }
     }
 }
 
-// Blocking call, runs on this thread
 pub fn run(controller: BrightnessController) {
     QApplication::init(|_| unsafe {
         assert!(QSystemTrayIcon::is_system_tray_available());
-        let _tray = TrayApplication::new();
+        let _tray = TrayApplication::new(controller);
         QApplication::exec()
     });
 }
 
-pub struct TrayApplicationHandle;
+enum Message {
+    CloseConsole,
+    ExitApplication,
+}
 
-impl TrayApplicationHandle {
-    pub fn close_console(&self) {}
+#[derive(Clone)]
+pub(super) struct Handle(SyncSender<Message>);
 
-    pub fn exit_application(&self) {}
+impl Handle {
+    pub(super) fn close_console(&self) {
+        self.0.send(Message::CloseConsole).unwrap();
+    }
+
+    pub(super) fn exit_application(&self) {
+        self.0.send(Message::ExitApplication).unwrap();
+    }
 }
