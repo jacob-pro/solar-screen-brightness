@@ -3,7 +3,8 @@ use crate::console::Console;
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use cpp_core::{Ptr, StaticUpcast};
-use qt_core::{qs, slot, QBox, QObject, QPtr, QTimer, SlotOfBool, SlotNoArgs, QCoreApplication};
+use cursive::Cursive;
+use qt_core::{qs, slot, QBox, QCoreApplication, QObject, QPtr, QTimer, SlotNoArgs, SlotOfBool};
 use qt_gui::{QIcon, QPixmap};
 use qt_widgets::{QAction, QApplication, QMenu, QSystemTrayIcon};
 use std::cell::RefCell;
@@ -75,24 +76,20 @@ impl TrayApplication {
     #[slot(SlotNoArgs)]
     unsafe fn on_event_loop(self: &Rc<Self>) {
         match self.rx.try_recv() {
-            Ok(message) => {
-                match message  {
-                    Message::CloseConsole => {
-                        self.console.borrow_mut().hide();
-                    }
-                    Message::ExitApplication => {
-                        QCoreApplication::quit();
-                    }
+            Ok(message) => match message {
+                Message::CloseConsole => {
+                    self.console.borrow_mut().hide();
                 }
-            }
-            Err(e) => {
-                match e {
-                    TryRecvError::Empty => {}
-                    TryRecvError::Disconnected => {
-                        panic!("Tray Handle disconnected");
-                    }
+                Message::ExitApplication => {
+                    QCoreApplication::quit();
                 }
-            }
+            },
+            Err(e) => match e {
+                TryRecvError::Empty => {}
+                TryRecvError::Disconnected => {
+                    panic!("Tray Handle disconnected");
+                }
+            },
         }
     }
 }
@@ -114,8 +111,9 @@ enum Message {
 pub(super) struct Handle(SyncSender<Message>);
 
 impl Handle {
-    pub(super) fn close_console(&self) {
+    pub(super) fn close_console(&self, cursive: &mut Cursive) {
         self.0.send(Message::CloseConsole).unwrap();
+        cursive.quit();
     }
 
     pub(super) fn exit_application(&self) {

@@ -20,7 +20,7 @@ impl Console {
         self.0.show();
     }
 
-    pub fn hide(&self) {
+    pub fn hide(&mut self) {
         self.0.hide();
     }
 }

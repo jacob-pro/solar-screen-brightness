@@ -110,7 +110,8 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             cursive.add_layer(Dialog::info(msg));
         }
         MainMenuChoice::CloseConsole => {
-            ud.tray.close_console();
+            let tray = ud.tray.clone();
+            tray.close_console(cursive);
         }
         MainMenuChoice::ExitApplication => {
             let msg = "Warning: Exiting the application will stop the dynamic brightness \
