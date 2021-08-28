@@ -1,6 +1,7 @@
 use crate::assets::Assets;
 use crate::console::Console;
 use crate::controller::BrightnessController;
+use crate::tray::TrayApplicationHandle;
 use crate::wide::{get_user_data, loword, WideString};
 use std::panic::PanicInfo;
 
@@ -27,7 +28,7 @@ const EXIT_APPLICATION_MSG: u32 = WM_APP + 3;
 
 struct WindowData {
     tray_icon: NOTIFYICONDATAW,
-    console: Option<Console>,
+    console: Console,
     controller: BrightnessController,
     prev_running: bool,
 }
@@ -95,8 +96,11 @@ pub fn run(controller: BrightnessController) {
         // Register Window data
         let mut window_data = Box::new(WindowData {
             tray_icon: data,
-            console: None,
-            controller: controller,
+            console: Console::new(
+                TrayApplicationHandle(TrayApplicationHandleImpl(hwnd)),
+                controller.clone(),
+            ),
+            controller,
             prev_running: false,
         });
         SetLastError(0);
@@ -138,24 +142,13 @@ unsafe extern "system" fn tray_window_proc(
         CALLBACK_MSG => match loword(l_param.0 as u32) {
             WM_LBUTTONUP | WM_RBUTTONUP => {
                 let app = get_user_data::<WindowData>(&hwnd).unwrap();
-                let hwnd = app.tray_icon.hWnd;
-                match &app.console {
-                    Some(c) => {
-                        c.show();
-                    }
-                    None => {
-                        app.console = Some(Console::create(
-                            TrayApplicationHandle(hwnd),
-                            app.controller.clone(),
-                        ));
-                    }
-                }
+                app.console.show();
             }
             _ => {}
         },
         CLOSE_CONSOLE_MSG => {
             let app = get_user_data::<WindowData>(&hwnd).unwrap();
-            app.console.as_ref().unwrap().hide();
+            app.console.hide();
         }
         EXIT_APPLICATION_MSG => {
             PostQuitMessage(0);
@@ -180,20 +173,21 @@ unsafe extern "system" fn tray_window_proc(
     return DefWindowProcW(hwnd, msg, w_param, l_param);
 }
 
-pub struct TrayApplicationHandle(HWND);
+#[derive(Clone)]
+pub(super) struct TrayApplicationHandleImpl(HWND);
 
-impl TrayApplicationHandle {
+impl TrayApplicationHandleImpl {
     fn send_message(&self, msg: u32) {
         unsafe {
             SendMessageW(self.0, msg, WPARAM(0), LPARAM(0));
         }
     }
 
-    pub fn close_console(&self) {
+    pub(super) fn close_console(&self) {
         self.send_message(CLOSE_CONSOLE_MSG);
     }
 
-    pub fn exit_application(&self) {
+    pub(super) fn exit_application(&self) {
         self.send_message(EXIT_APPLICATION_MSG);
     }
 }

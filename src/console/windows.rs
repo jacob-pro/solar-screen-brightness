@@ -20,39 +20,54 @@ struct WindowData {
     old_proc: isize,
 }
 
-pub struct Console(Box<WindowData>);
+pub(super) struct ConsoleImpl {
+    tray: TrayApplicationHandle,
+    controller: BrightnessController,
+    window_data: Option<Box<WindowData>>,
+}
 
-impl Console {
-    pub fn create(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
+impl ConsoleImpl {
+    pub(super) fn new(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
+        Self {
+            tray,
+            controller,
+            window_data: None,
+        }
+    }
+
+    pub(super) fn show(&mut self) {
+        if self.window_data.is_none() {
+            self.initialise();
+        }
+        self.window_data.as_mut().unwrap().show();
+    }
+
+    pub(super) fn hide(&self) {
+        self.window_data.as_ref().map(|d| d.hide());
+    }
+
+    fn initialise(&mut self) {
+        let tray = self.tray.clone();
+        let controller = self.controller.clone();
         std::thread::spawn(move || {
             run(tray, controller);
         });
         let handle = await_handle();
-        let mut console = unsafe {
-            Console(Box::new(WindowData {
+        let mut data = unsafe {
+            Box::new(WindowData {
                 handle,
                 old_proc: GetWindowLongPtrW(handle, GWL_WNDPROC),
-            }))
+            })
         };
-        console.configure();
-        console.show();
-        console
-    }
-
-    fn configure(&mut self) {
         unsafe {
             assert_ne!(
-                SetWindowLongPtrW(self.0.handle, GWL_WNDPROC, window_proc as isize),
+                SetWindowLongPtrW(data.handle, GWL_WNDPROC, window_proc as isize),
                 0
             );
-            SetWindowLongPtrW(
-                self.0.handle,
-                GWLP_USERDATA,
-                self.0.as_mut() as *mut _ as isize,
-            );
+            SetWindowLongPtrW(data.handle, GWLP_USERDATA, data.as_mut() as *mut _ as isize);
 
             let mut title = "Solar Screen Brightness".to_wide();
-            SetWindowTextW(self.0.handle, PWSTR(title.as_mut_ptr()));
+            SetWindowTextW(data.handle, PWSTR(title.as_mut_ptr()));
             let mut asset = Assets::get("icon-256.png")
                 .expect("Icon missing")
                 .into_owned();
@@ -63,26 +78,19 @@ impl Console {
                 0x00030000,
             );
             SendMessageW(
-                self.0.handle,
+                data.handle,
                 WM_SETICON,
                 WPARAM(ICON_BIG as usize),
                 LPARAM(hicon.0),
             );
             SendMessageW(
-                self.0.handle,
+                data.handle,
                 WM_SETICON,
                 WPARAM(ICON_SMALL as usize),
                 LPARAM(hicon.0),
             );
         }
-    }
-
-    pub fn show(&self) {
-        self.0.show();
-    }
-
-    pub fn hide(&self) {
-        self.0.hide();
+        self.window_data = Some(data);
     }
 }
 
