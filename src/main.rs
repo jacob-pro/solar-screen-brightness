@@ -30,7 +30,7 @@ fn main() {
     let config = Config::load().ok().unwrap_or_default();
     let mut controller = BrightnessController::new(config);
     controller.start();
-    tray::run(controller);
+    tray::run_tray_application(controller);
 }
 
 // fn already_running() -> bool {

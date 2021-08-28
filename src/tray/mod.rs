@@ -6,18 +6,24 @@ mod tray_impl;
 #[path = "windows.rs"]
 mod tray_impl;
 
-pub use tray_impl::run;
-use tray_impl::TrayApplicationHandleImpl as Inner;
+use crate::controller::BrightnessController;
 
 #[derive(Clone)]
-pub struct TrayApplicationHandle(Inner);
+pub struct TrayApplicationHandle(tray_impl::Handle);
 
 impl TrayApplicationHandle {
+    #[inline]
     pub fn close_console(&self) {
         self.0.close_console();
     }
 
+    #[inline]
     pub fn exit_application(&self) {
         self.0.exit_application();
     }
+}
+
+/// Blocking call, runs on this thread
+pub fn run_tray_application(controller: BrightnessController) {
+    tray_impl::run(controller)
 }

@@ -8,13 +8,12 @@ mod console_impl;
 
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
-use console_impl::ConsoleImpl as Inner;
 
-pub struct Console(Inner);
+pub struct Console(console_impl::Console);
 
 impl Console {
     pub fn new(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
-        Self(Inner::new(tray, controller))
+        Self(console_impl::Console::new(tray, controller))
     }
 
     pub fn show(&mut self) {

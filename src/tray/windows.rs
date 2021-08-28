@@ -33,7 +33,6 @@ struct WindowData {
     prev_running: bool,
 }
 
-// Blocking call, runs on this thread
 pub fn run(controller: BrightnessController) {
     std::panic::set_hook(Box::new(handle_panic));
     unsafe {
@@ -96,10 +95,7 @@ pub fn run(controller: BrightnessController) {
         // Register Window data
         let mut window_data = Box::new(WindowData {
             tray_icon: data,
-            console: Console::new(
-                TrayApplicationHandle(TrayApplicationHandleImpl(hwnd)),
-                controller.clone(),
-            ),
+            console: Console::new(TrayApplicationHandle(Handle(hwnd)), controller.clone()),
             controller,
             prev_running: false,
         });
@@ -174,9 +170,9 @@ unsafe extern "system" fn tray_window_proc(
 }
 
 #[derive(Clone)]
-pub(super) struct TrayApplicationHandleImpl(HWND);
+pub(super) struct Handle(HWND);
 
-impl TrayApplicationHandleImpl {
+impl Handle {
     fn send_message(&self, msg: u32) {
         unsafe {
             SendMessageW(self.0, msg, WPARAM(0), LPARAM(0));

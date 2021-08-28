@@ -20,13 +20,13 @@ struct WindowData {
     old_proc: isize,
 }
 
-pub(super) struct ConsoleImpl {
+pub(super) struct Console {
     tray: TrayApplicationHandle,
     controller: BrightnessController,
     window_data: Option<Box<WindowData>>,
 }
 
-impl ConsoleImpl {
+impl Console {
     pub(super) fn new(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
         Self {
             tray,
