@@ -23,6 +23,7 @@ use crate::config::Config;
 use crate::controller::apply::get_devices;
 use crate::controller::BrightnessController;
 use crate::lock::acquire_lock;
+use crate::tray::show_console_in_another_process;
 use clap::{AppSettings, Clap};
 use futures::executor::block_on;
 
@@ -93,6 +94,7 @@ fn launch(args: LaunchArgs) -> i32 {
         log::info!("Program exiting gracefully");
         EXIT_SUCCESS
     } else {
+        show_console_in_another_process();
         EXIT_FAILURE
     }
 }

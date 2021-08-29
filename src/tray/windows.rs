@@ -16,22 +16,23 @@ use solar_screen_brightness_windows_bindings::Windows::Win32::{
     },
     UI::WindowsAndMessaging::{
         CreateIconFromResource, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW,
-        MessageBoxW, PostQuitMessage, RegisterClassW, SendMessageW, SetWindowLongPtrW,
-        TranslateMessage, CW_USEDEFAULT, GWLP_USERDATA, HMENU, MB_ICONSTOP, MB_OK, WINDOW_EX_STYLE,
-        WM_APP, WM_LBUTTONUP, WM_RBUTTONUP, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW,
-        WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
+        MessageBoxW, PostMessageW, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
+        SendMessageW, SetWindowLongPtrW, TranslateMessage, CW_USEDEFAULT, GWLP_USERDATA, HMENU,
+        MB_ICONSTOP, MB_OK, WINDOW_EX_STYLE, WM_APP, WM_LBUTTONUP, WM_RBUTTONUP,
+        WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
     },
 };
 
+const SHOW_CONSOLE_MSG: &str = "solar-screen-brightness.show_console";
 const CALLBACK_MSG: u32 = WM_APP + 1;
 const CLOSE_CONSOLE_MSG: u32 = WM_APP + 2;
 const EXIT_APPLICATION_MSG: u32 = WM_APP + 3;
 
 struct WindowData {
-    tray_icon: NOTIFYICONDATAW,
     console: Console,
     controller: BrightnessController,
     prev_running: bool,
+    show_console_msg_code: u32,
 }
 
 pub fn run(controller: BrightnessController, launch_console: bool) {
@@ -66,6 +67,22 @@ pub fn run(controller: BrightnessController, launch_console: bool) {
         );
         assert!(!hwnd.is_null());
 
+        // Register Window data
+        let mut msg_name = SHOW_CONSOLE_MSG.to_wide();
+        let mut window_data = Box::new(WindowData {
+            console: Console::new(TrayApplicationHandle(Handle(hwnd)), controller.clone()),
+            controller,
+            prev_running: false,
+            show_console_msg_code: RegisterWindowMessageW(PWSTR(msg_name.as_mut_ptr())),
+        });
+        SetLastError(0);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, window_data.as_mut() as *mut _ as isize);
+        assert_eq!(
+            GetLastError(),
+            WIN32_ERROR(0),
+            "Failed to set GWLP_USERDATA"
+        );
+
         // Register for Session Notifications
         assert!(WTSRegisterSessionNotification(hwnd, 0).as_bool());
 
@@ -82,31 +99,16 @@ pub fn run(controller: BrightnessController, launch_console: bool) {
         assert!(!hicon.is_null());
 
         // Create tray icon
-        let mut data: NOTIFYICONDATAW = std::mem::MaybeUninit::zeroed().assume_init();
+        let mut tray_icon: NOTIFYICONDATAW = std::mem::MaybeUninit::zeroed().assume_init();
         let mut name = "Solar Screen Brightness".to_wide();
-        name.resize(data.szTip.len(), 0);
-        let bytes = &name[..data.szTip.len()];
-        data.hWnd = hwnd;
-        data.hIcon = hicon;
-        data.uCallbackMessage = CALLBACK_MSG;
-        data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-        data.szTip.copy_from_slice(bytes);
-        assert!(Shell_NotifyIconW(NIM_ADD, &mut data).as_bool());
-
-        // Register Window data
-        let mut window_data = Box::new(WindowData {
-            tray_icon: data,
-            console: Console::new(TrayApplicationHandle(Handle(hwnd)), controller.clone()),
-            controller,
-            prev_running: false,
-        });
-        SetLastError(0);
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, window_data.as_mut() as *mut _ as isize);
-        assert_eq!(
-            GetLastError(),
-            WIN32_ERROR(0),
-            "Failed to set GWLP_USERDATA"
-        );
+        name.resize(tray_icon.szTip.len(), 0);
+        let bytes = &name[..tray_icon.szTip.len()];
+        tray_icon.hWnd = hwnd;
+        tray_icon.hIcon = hicon;
+        tray_icon.uCallbackMessage = CALLBACK_MSG;
+        tray_icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+        tray_icon.szTip.copy_from_slice(bytes);
+        assert!(Shell_NotifyIconW(NIM_ADD, &mut tray_icon).as_bool());
 
         if launch_console {
             window_data.console.show();
@@ -129,7 +131,7 @@ pub fn run(controller: BrightnessController, launch_console: bool) {
         }
 
         // Cleanup
-        assert!(Shell_NotifyIconW(NIM_DELETE, &mut window_data.tray_icon).as_bool());
+        assert!(Shell_NotifyIconW(NIM_DELETE, &mut tray_icon).as_bool());
     }
 }
 
@@ -139,24 +141,22 @@ unsafe extern "system" fn tray_window_proc(
     w_param: WPARAM,
     l_param: LPARAM,
 ) -> LRESULT {
-    match msg {
-        CALLBACK_MSG => match loword(l_param.0 as u32) {
-            WM_LBUTTONUP | WM_RBUTTONUP => {
-                let app = get_user_data::<WindowData>(&hwnd).unwrap();
-                app.console.show();
+    match get_user_data::<WindowData>(&hwnd) {
+        None => {}
+        Some(app) => match msg {
+            CALLBACK_MSG => match loword(l_param.0 as u32) {
+                WM_LBUTTONUP | WM_RBUTTONUP => {
+                    app.console.show();
+                }
+                _ => {}
+            },
+            CLOSE_CONSOLE_MSG => {
+                app.console.hide();
             }
-            _ => {}
-        },
-        CLOSE_CONSOLE_MSG => {
-            let app = get_user_data::<WindowData>(&hwnd).unwrap();
-            app.console.hide();
-        }
-        EXIT_APPLICATION_MSG => {
-            PostQuitMessage(0);
-        }
-        WM_WTSSESSION_CHANGE => {
-            let app = get_user_data::<WindowData>(&hwnd).unwrap();
-            match w_param.0 as u32 {
+            EXIT_APPLICATION_MSG => {
+                PostQuitMessage(0);
+            }
+            WM_WTSSESSION_CHANGE => match w_param.0 as u32 {
                 WTS_SESSION_LOCK => {
                     log::info!("Detected session lock, ensuring dynamic brightness disabled");
                     app.prev_running = app.controller.get_enabled();
@@ -171,9 +171,12 @@ unsafe extern "system" fn tray_window_proc(
                     }
                 }
                 _ => {}
+            },
+            msg if msg == app.show_console_msg_code => {
+                app.console.show();
             }
-        }
-        _ => {}
+            _ => {}
+        },
     }
     return DefWindowProcW(hwnd, msg, w_param, l_param);
 }
@@ -209,5 +212,14 @@ fn handle_panic(info: &PanicInfo) {
             MB_OK | MB_ICONSTOP,
         );
         std::process::exit(1);
+    }
+}
+
+pub fn show_console_in_another_process() {
+    const HWND_BROADCAST: HWND = HWND(0xffff);
+    let mut msg_name = SHOW_CONSOLE_MSG.to_wide();
+    unsafe {
+        let msg = RegisterWindowMessageW(PWSTR(msg_name.as_mut_ptr()));
+        PostMessageW(HWND_BROADCAST, msg, WPARAM(0), LPARAM(0));
     }
 }

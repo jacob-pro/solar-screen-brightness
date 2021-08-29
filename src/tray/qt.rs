@@ -120,3 +120,5 @@ impl Handle {
         self.0.send(Message::ExitApplication).unwrap();
     }
 }
+
+pub fn show_console_in_another_process() {}
