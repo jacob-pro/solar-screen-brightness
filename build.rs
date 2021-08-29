@@ -5,7 +5,7 @@ fn main() {
     bearlib(path);
 }
 
-#[cfg(all(target_os = "linux",  target_arch = "x86_64"))]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 fn bearlib(path: PathBuf) {
     let path = path.join("linux_x64");
     println!("cargo:rustc-env=LD_LIBRARY_PATH={}", path.to_str().unwrap());
