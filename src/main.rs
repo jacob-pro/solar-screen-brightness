@@ -120,7 +120,7 @@ fn headless(args: HeadlessArgs) -> i32 {
         let mut controller = BrightnessController::new(config);
         controller.start();
         loop {
-            std::thread::park()
+            std::thread::park();
         }
     }
     log::info!("Program exiting gracefully");
