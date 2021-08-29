@@ -208,7 +208,6 @@ fn handle_panic(info: &PanicInfo) {
             PWSTR(title.as_mut_ptr()),
             MB_OK | MB_ICONSTOP,
         );
-        crate::win32_subsystem_fix::send_enter();
         std::process::exit(1);
     }
 }

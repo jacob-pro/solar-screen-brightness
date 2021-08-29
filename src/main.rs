@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "console"]
 
 #[macro_use]
 extern crate validator_derive;
@@ -67,7 +67,7 @@ impl Default for SubCommand {
 
 fn main() {
     std::process::exit((|| {
-        let _console = win32_subsystem_fix::run();
+        console_subsystem_fix();
         let opts: Opts = match Opts::try_parse() {
             Err(e) => {
                 e.print().ok();
@@ -137,50 +137,27 @@ fn list_monitors() -> i32 {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub(crate) mod win32_subsystem_fix {
-    pub(super) fn run() {}
-}
+pub fn console_subsystem_fix() {}
 
 #[cfg(target_os = "windows")]
-// https://www.tillett.info/2013/05/13/how-to-create-a-windows-program-that-works-as-both-as-a-gui-and-console-application/
-pub mod win32_subsystem_fix {
+pub fn console_subsystem_fix() {
     use solar_screen_brightness_windows_bindings::Windows::Win32::{
-        System::Console::*, UI::KeyboardAndMouseInput::*,
-        UI::WindowsAndMessaging::SetForegroundWindow,
+        System::Console::GetConsoleWindow,
+        System::Threading::GetCurrentProcessId,
+        UI::WindowsAndMessaging::{GetWindowThreadProcessId, ShowWindow, SW_HIDE},
     };
-
-    pub(super) struct ConsoleAttachment();
-
-    impl Drop for ConsoleAttachment {
-        fn drop(&mut self) {
-            send_enter();
-        }
-    }
-
-    pub(super) fn run() -> Option<ConsoleAttachment> {
-        const ATTACH_PARENT_PROCESS: u32 = -1i32 as u32;
-        unsafe {
-            let attached = AttachConsole(ATTACH_PARENT_PROCESS).as_bool();
-            if attached {
-                println!();
-                return Some(ConsoleAttachment());
-            }
-        }
-        None
-    }
-
-    // Call this on an early/unexpected process exit
-    // Otherwise will automatically be called if the main function returns
-    pub fn send_enter() {
-        unsafe {
-            let console = GetConsoleWindow();
-            if !console.is_null() && SetForegroundWindow(console).as_bool() {
-                let mut ip: INPUT = std::mem::MaybeUninit::zeroed().assume_init();
-                ip.r#type = INPUT_KEYBOARD;
-                ip.Anonymous.ki.wVk = 0x0D; // virtual-key code for the "Enter" key
-                SendInput(1, &mut ip, std::mem::size_of_val(&ip) as i32);
-                ip.Anonymous.ki.dwFlags = KEYEVENTF_KEYUP; // KEYEVENTF_KEYUP for key release
-                SendInput(1, &mut ip, std::mem::size_of_val(&ip) as i32);
+    // This app is built with /SUBSYTEM:CONSOLE
+    // This is so that we can use the console functions or view the logs
+    // However when launched as a desktop application Windows auto starts a console window
+    // in this process, so we need to hide it
+    unsafe {
+        let console = GetConsoleWindow();
+        if !console.is_null() {
+            let mut console_pid = 0;
+            GetWindowThreadProcessId(console, &mut console_pid);
+            if console_pid == GetCurrentProcessId() {
+                log::info!("Hiding Windows console subsystem window");
+                ShowWindow(console, SW_HIDE);
             }
         }
     }
