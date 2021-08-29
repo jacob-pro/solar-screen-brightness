@@ -8,7 +8,9 @@ pub fn acquire_lock() -> bool {
     use solar_screen_brightness_windows_bindings::Windows::Win32::{
         Foundation::{BOOL, HANDLE, PWSTR},
         Security::{GetTokenInformation, TokenStatistics, TOKEN_QUERY, TOKEN_STATISTICS},
-        System::Diagnostics::Debug::{GetLastError, SetLastError, ERROR_ALREADY_EXISTS},
+        System::Diagnostics::Debug::{
+            GetLastError, SetLastError, ERROR_ALREADY_EXISTS, ERROR_SUCCESS,
+        },
         System::Threading::{CreateMutexW, GetCurrentProcess, OpenProcessToken},
     };
     unsafe {
@@ -35,26 +37,24 @@ pub fn acquire_lock() -> bool {
             };
         }
         let mut name_wide = name.as_str().to_wide();
-        SetLastError(0);
-        if CreateMutexW(
+        SetLastError(ERROR_SUCCESS.0);
+        CreateMutexW(
             std::ptr::null_mut(),
             BOOL::from(true),
             PWSTR(name_wide.as_mut_ptr()),
-        )
-        .is_invalid()
-        {
-            let e = GetLastError();
-            if e == ERROR_ALREADY_EXISTS {
-                log::error!("Failed to acquire lock - the application is already running");
-                return false;
-            } else {
-                log::warn!(
-                    "Failed to acquire lock, system error code: {}, ignoring",
-                    e.0
-                )
-            }
-        } else {
+        );
+
+        let e = GetLastError();
+        if e == ERROR_ALREADY_EXISTS {
+            log::error!("Failed to acquire lock - the application is already running");
+            return false;
+        } else if e == ERROR_SUCCESS {
             log::info!("Acquired lock: {}", name);
+        } else {
+            log::warn!(
+                "Failed to acquire lock, system error code: {}, ignoring",
+                e.0
+            )
         }
     }
     true
