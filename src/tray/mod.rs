@@ -7,7 +7,7 @@ mod tray_impl;
 mod tray_impl;
 
 use crate::controller::BrightnessController;
-use cursive::Cursive;
+use crate::cursive::Cursive;
 
 #[derive(Clone)]
 pub struct TrayApplicationHandle(tray_impl::Handle);

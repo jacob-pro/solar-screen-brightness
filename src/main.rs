@@ -13,6 +13,11 @@ mod tui;
 #[cfg(target_os = "windows")]
 mod wide;
 
+#[cfg(not(target_os = "windows"))]
+pub use cursive;
+#[cfg(target_os = "windows")]
+pub use solar_screen_brightness_windows_bindings::cursive;
+
 use crate::config::Config;
 use crate::controller::BrightnessController;
 // use crate::wide::WideString;

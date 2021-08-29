@@ -1,6 +1,7 @@
 use crate::assets::Assets;
 use crate::console::Console;
 use crate::controller::BrightnessController;
+use crate::cursive::Cursive;
 use crate::tray::TrayApplicationHandle;
 use crate::wide::{get_user_data, loword, WideString};
 use std::panic::PanicInfo;
@@ -179,7 +180,7 @@ impl Handle {
         }
     }
 
-    pub(super) fn close_console(&self) {
+    pub(super) fn close_console(&self, _: &mut Cursive) {
         self.send_message(CLOSE_CONSOLE_MSG);
     }
 

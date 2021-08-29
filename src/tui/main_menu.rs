@@ -1,10 +1,10 @@
 use crate::config::Config;
+use crate::cursive::align::HAlign;
+use crate::cursive::traits::Nameable;
+use crate::cursive::view::Resizable;
+use crate::cursive::views::{Dialog, HideableView, NamedView, ScrollView, SelectView, TextView};
+use crate::cursive::Cursive;
 use crate::tui::UserData;
-use cursive::align::HAlign;
-use cursive::traits::Nameable;
-use cursive::view::Resizable;
-use cursive::views::{Dialog, HideableView, NamedView, ScrollView, SelectView, TextView};
-use cursive::Cursive;
 use enum_iterator::IntoEnumIterator;
 
 const MAIN_VIEW: &str = "MAIN_MENU_VIEW";

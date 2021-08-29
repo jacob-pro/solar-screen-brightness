@@ -1,8 +1,10 @@
 use crate::config::{Config, Location};
+use crate::cursive::traits::{Nameable, Resizable};
+use crate::cursive::views::{
+    Button, Dialog, DummyView, EditView, LinearLayout, ListView, NamedView,
+};
+use crate::cursive::Cursive;
 use crate::tui::UserData;
-use cursive::traits::{Nameable, Resizable};
-use cursive::views::{Button, Dialog, DummyView, EditView, LinearLayout, ListView, NamedView};
-use cursive::Cursive;
 use geocoding::Openstreetmap;
 use validator::{Validate, ValidationErrors};
 

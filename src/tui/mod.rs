@@ -1,9 +1,9 @@
 use crate::config::Config;
 use crate::controller::apply::ApplyResult;
 use crate::controller::{BrightnessController, Observer};
+use crate::cursive::event::Event;
+use crate::cursive::{CbSink, Cursive, CursiveExt};
 use crate::tray::TrayApplicationHandle;
-use cursive::event::Event;
-use cursive::{CbSink, Cursive, CursiveExt};
 use std::sync::Arc;
 
 mod edit_config;
