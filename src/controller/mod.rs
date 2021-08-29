@@ -44,25 +44,40 @@ impl BrightnessController {
     pub fn start(&mut self) {
         let mut write = self.0.write().unwrap();
         if write.tx.is_none() {
+            log::info!("Starting BrightnessController");
             let (tx, rx) = sync_channel::<Notification>(0);
             write.tx = Some(tx);
-            let this = self.0.clone();
+            let weak = Arc::downgrade(&self.0);
             std::thread::spawn(move || {
                 loop {
-                    let (res, next_run) = apply(&this);
-                    this.write().unwrap().set_last_result(res);
+                    let wait = match weak.upgrade() {
+                        None => {
+                            log::info!("BrightnessController thread stopping");
+                            break;
+                        }
+                        Some(this) => {
+                            let (res, next_run) = apply(&this);
+                            this.write().unwrap().set_last_result(res);
 
-                    // Wait for the next run, or a notification
-                    let unix_time_now = Utc::now().timestamp();
-                    let wait = if next_run > unix_time_now {
-                        next_run - unix_time_now
-                    } else {
-                        0
+                            // Wait for the next run, or a notification
+                            let unix_time_now = Utc::now().timestamp();
+                            if next_run > unix_time_now {
+                                next_run - unix_time_now
+                            } else {
+                                0
+                            }
+                        }
                     };
+                    if wait > 0 {
+                        log::info!("BrightnessController sleeping for {}s", wait);
+                    }
                     match rx.recv_timeout(Duration::from_secs(wait as u64)) {
                         Ok(msg) => match msg {
                             Notification::Refresh => {}
-                            Notification::Terminate => break,
+                            Notification::Terminate => {
+                                log::info!("BrightnessController thread stopping");
+                                break;
+                            }
                         },
                         Err(e) => {
                             if e != RecvTimeoutError::Timeout {
@@ -72,6 +87,8 @@ impl BrightnessController {
                     };
                 }
             });
+        } else {
+            log::warn!("BrightnessController is already running, ignoring");
         }
     }
 
@@ -120,17 +137,25 @@ impl BrightnessController {
 impl BrightnessControllerInner {
     fn stop(&mut self) {
         let tx = std::mem::take(&mut self.tx);
-        tx.map(|tx| {
-            tx.send(Notification::Terminate).unwrap();
-        });
+        match tx {
+            None => {
+                log::info!("BrightnessController is not running, ignoring");
+            }
+            Some(tx) => {
+                log::info!("Stopping BrightnessController");
+                tx.send(Notification::Terminate).unwrap();
+            }
+        }
     }
 
     fn register(&mut self, o: Weak<dyn Observer + Send + Sync>) {
+        log::info!("Registering observer");
         self.clean_observers();
         self.observers.push(o);
     }
 
     fn unregister(&mut self, o: Weak<dyn Observer + Send + Sync>) {
+        log::info!("Unregistering observer");
         let observers = std::mem::take(&mut self.observers);
         self.observers = observers
             .into_iter()
@@ -139,6 +164,11 @@ impl BrightnessControllerInner {
     }
 
     fn set_enabled(&mut self, enabled: bool) -> bool {
+        if enabled {
+            log::info!("Enabling dynamic brightness");
+        } else {
+            log::info!("Disabling dynamic brightness");
+        }
         let before = self.enabled;
         self.enabled = enabled;
         self.tx
@@ -150,6 +180,7 @@ impl BrightnessControllerInner {
     }
 
     fn set_config(&mut self, config: Config) -> Config {
+        log::info!("Applying new config");
         let before = std::mem::replace(&mut self.config, config);
         self.tx
             .as_ref()
@@ -169,7 +200,13 @@ impl BrightnessControllerInner {
         let observers = std::mem::take(&mut self.observers);
         self.observers = observers
             .into_iter()
-            .filter(|p| p.upgrade().is_some())
+            .filter(|p| {
+                let is_some = p.upgrade().is_some();
+                if !is_some {
+                    log::info!("Dropping null observer");
+                }
+                is_some
+            })
             .collect();
     }
 

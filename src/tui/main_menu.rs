@@ -123,6 +123,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
                     .content(TextView::new(msg))
                     .dismiss_button("Cancel")
                     .button("Exit", |cursive| {
+                        cursive.quit();
                         let ud = cursive.user_data::<UserData>().unwrap();
                         ud.tray.exit_application();
                     })

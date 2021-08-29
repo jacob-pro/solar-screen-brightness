@@ -37,24 +37,28 @@ impl Observer for CursiveObserver {
     fn did_set_config(&self, _config: &Config) {}
 }
 
-pub fn run_cursive(tray: TrayApplicationHandle, controller: BrightnessController) {
-    let mut siv = Cursive::default();
+pub fn launch_cursive(tray: TrayApplicationHandle, controller: BrightnessController) {
+    std::thread::spawn(move || {
+        log::info!("Cursive thread starting");
+        let mut siv = Cursive::default();
 
-    siv.clear_global_callbacks(Event::CtrlChar('c'));
-    siv.clear_global_callbacks(Event::Exit);
+        siv.clear_global_callbacks(Event::CtrlChar('c'));
+        siv.clear_global_callbacks(Event::Exit);
 
-    siv.set_user_data(UserData {
-        tray,
-        controller: controller.clone(),
+        siv.set_user_data(UserData {
+            tray,
+            controller: controller.clone(),
+        });
+
+        siv.add_layer(main_menu::create());
+        main_menu::running_change(&mut siv, controller.get_enabled());
+
+        let delegate: Arc<dyn Observer + Send + Sync> =
+            Arc::new(CursiveObserver(siv.cb_sink().clone()));
+
+        controller.register(Arc::downgrade(&delegate));
+
+        siv.run();
+        log::info!("Cursive thread stopping");
     });
-
-    siv.add_layer(main_menu::create());
-    main_menu::running_change(&mut siv, controller.get_enabled());
-
-    let delegate: Arc<dyn Observer + Send + Sync> =
-        Arc::new(CursiveObserver(siv.cb_sink().clone()));
-
-    controller.register(Arc::downgrade(&delegate));
-
-    siv.run();
 }

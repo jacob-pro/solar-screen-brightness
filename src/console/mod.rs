@@ -17,10 +17,12 @@ impl Console {
     }
 
     pub fn show(&mut self) {
+        log::info!("Showing console");
         self.0.show();
     }
 
     pub fn hide(&mut self) {
+        log::info!("Hiding console");
         self.0.hide();
     }
 }

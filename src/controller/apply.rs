@@ -36,7 +36,10 @@ pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (Appl
     let config = inner_ref.read().unwrap().config.clone();
     // Calculate sunrise and brightness
     match &config.location {
-        None => return (ApplyResult::Error(ApplyError::NoLocationSet), unix_t::MAX),
+        None => {
+            log::warn!("Unable to compute brightness because no location has been configured");
+            return (ApplyResult::Error(ApplyError::NoLocationSet), unix_t::MAX);
+        }
         Some(location) => {
             let now = SystemTime::now();
             let epoch_time_now = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
@@ -47,6 +50,7 @@ pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (Appl
             );
             let ssr = input.compute().unwrap();
             let br = calculate_brightness(&config, &ssr, epoch_time_now);
+            log::info!("Computed base brightness of {}%", br.brightness);
 
             let results = SolarAndBrightnessResults {
                 base_brightness: br.brightness,
@@ -60,24 +64,34 @@ pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (Appl
             if inner_ref.read().unwrap().enabled {
                 let mut errors = vec![];
                 let devices = block_on(get_devices());
+                let devices_len = devices.len();
                 for dev in devices {
                     match dev {
                         Ok(mut dev) => match block_on(dev.set(br.brightness)) {
                             Err(e) => {
+                                log::error!("An error occurred setting monitor brightness: {}", e);
                                 errors.push(e);
                             }
                             _ => {}
                         },
                         Err(e) => {
+                            log::error!("An error occurred getting monitors: {}", e);
                             errors.push(e);
                         }
                     }
+                }
+                if errors.is_empty() {
+                    log::info!(
+                        "Brightness applied successfully for {} devices",
+                        devices_len
+                    );
                 }
                 (
                     ApplyResult::Applied(results, Arc::new(errors)),
                     br.expiry_time,
                 )
             } else {
+                log::info!("Dynamic brightness is disabled, skipping apply");
                 (ApplyResult::Skipped(results), br.expiry_time)
             }
         }

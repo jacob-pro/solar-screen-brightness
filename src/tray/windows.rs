@@ -154,12 +154,16 @@ unsafe extern "system" fn tray_window_proc(
             let app = get_user_data::<WindowData>(&hwnd).unwrap();
             match w_param.0 as u32 {
                 WTS_SESSION_LOCK => {
+                    log::info!("Detected session lock, ensuring dynamic brightness disabled");
                     app.prev_running = app.controller.get_enabled();
                     app.controller.set_enabled(false);
                 }
                 WTS_SESSION_UNLOCK => {
                     if app.prev_running {
+                        log::info!("Detected session unlock, enabling dynamic brightness");
                         app.controller.set_enabled(true);
+                    } else {
+                        log::info!("Detected session unlock, ignoring");
                     }
                 }
                 _ => {}
@@ -190,6 +194,7 @@ impl Handle {
 }
 
 fn handle_panic(info: &PanicInfo) {
+    log::error!("Panic: {}", info);
     unsafe {
         let mut title = "Fatal Error".to_wide();
         let mut text = format!("{}", info).as_str().to_wide();

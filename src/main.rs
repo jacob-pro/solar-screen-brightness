@@ -32,10 +32,12 @@ fn main() {
     // if already_running() {
     //     panic!("Already running")
     // };
+    env_logger::init();
     let config = Config::load().ok().unwrap_or_default();
     let mut controller = BrightnessController::new(config);
     controller.start();
     tray::run_tray_application(controller);
+    log::info!("Program exiting gracefully");
 }
 
 // fn already_running() -> bool {

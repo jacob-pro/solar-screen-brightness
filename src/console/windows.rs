@@ -1,8 +1,9 @@
 use crate::assets::Assets;
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
-use crate::tui::run_cursive;
+use crate::tui::launch_cursive;
 use crate::wide::{get_user_data, WideString};
+use std::time::SystemTime;
 
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
@@ -49,9 +50,7 @@ impl Console {
     fn initialise(&mut self) {
         let tray = self.tray.clone();
         let controller = self.controller.clone();
-        std::thread::spawn(move || {
-            run_cursive(tray, controller);
-        });
+        launch_cursive(tray, controller);
         let handle = await_handle();
         let mut data = unsafe {
             Box::new(WindowData {
@@ -117,15 +116,18 @@ unsafe extern "system" fn window_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     let window_data: &mut WindowData = get_user_data(&hwnd).unwrap();
+    let intercept_close = || {
+        log::info!("Intercepted console window close, hiding instead");
+        window_data.hide();
+        LRESULT(0)
+    };
     match msg {
         WM_CLOSE => {
-            window_data.hide();
-            return LRESULT(0);
+            return intercept_close();
         }
         WM_SYSCOMMAND => {
             if wparam == WPARAM(SC_CLOSE as usize) {
-                window_data.hide();
-                return LRESULT(0);
+                return intercept_close();
             }
         }
         _ => {}
@@ -141,10 +143,18 @@ fn await_handle() -> HWND {
         // https://github.com/Bill-Gray/PDCursesMod/blob/master/wingui/pdcscrn.c#L2097
         static PDC_hWnd: HWND;
     }
+    let start = SystemTime::now();
     loop {
         unsafe {
+            let dur = SystemTime::now().duration_since(start).unwrap();
+            let ms = dur.as_micros() as f64 / 1000.0;
             if !PDC_hWnd.is_null() {
+                log::info!("Found valid PDC_hWnd in {:.2} ms", ms);
                 return PDC_hWnd;
+            } else {
+                if ms > 50.0 {
+                    log::warn!("Have not yet found a valid PDC_hWnd after {:.2} ms", ms);
+                }
             }
         }
     }
