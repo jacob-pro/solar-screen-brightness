@@ -1,6 +1,6 @@
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
-use crate::tui::run_cursive;
+use crate::tui::launch_cursive;
 
 pub(super) struct Console {
     tray: TrayApplicationHandle,
@@ -21,9 +21,7 @@ impl Console {
         if !self.running {
             let tray = self.tray.clone();
             let controller = self.controller.clone();
-            std::thread::spawn(move || {
-                run_cursive(tray, controller);
-            });
+            launch_cursive(tray, controller);
             self.running = true;
         }
     }

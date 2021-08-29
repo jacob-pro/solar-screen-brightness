@@ -25,6 +25,9 @@ jobs:
         name: Set LIBCLANG_PATH
         run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
 
+      - if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: apt install -y libncurses-dev qtbase5-dev
+
       - uses: actions/checkout@v2
 
       - name: Cargo Test
