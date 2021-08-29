@@ -27,7 +27,7 @@ jobs:
 
       - if: ${{ matrix.os == 'ubuntu-latest' }}
         name: Install dependencies
-        run: sudo apt install -y libncurses-dev qtbase5-dev
+        run: sudo apt update && sudo apt install -y libncurses-dev qtbase5-dev
 
       - uses: actions/checkout@v2
 
