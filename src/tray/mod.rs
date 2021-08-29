@@ -27,8 +27,8 @@ impl TrayApplicationHandle {
 }
 
 /// Blocking call, runs on this thread
-pub fn run_tray_application(controller: BrightnessController) {
+pub fn run_tray_application(controller: BrightnessController, launch_console: bool) {
     log::info!("Launching tray application");
-    tray_impl::run(controller);
+    tray_impl::run(controller, launch_console);
     log::info!("Tray application stopping");
 }

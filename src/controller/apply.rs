@@ -98,6 +98,6 @@ pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (Appl
     }
 }
 
-async fn get_devices() -> Vec<Result<BrightnessDevice, brightness::Error>> {
+pub async fn get_devices() -> Vec<Result<BrightnessDevice, brightness::Error>> {
     brightness::brightness_devices().collect::<Vec<_>>().await
 }

@@ -3,6 +3,8 @@ fn main() {
         Windows::Win32::Foundation::*,
         Windows::Win32::UI::WindowsAndMessaging::*,
         Windows::Win32::UI::Shell::*,
+        Windows::Win32::UI::KeyboardAndMouseInput::*,
+        Windows::Win32::System::Console::*,
         Windows::Win32::System::Threading::CreateMutexW,
         Windows::Win32::System::LibraryLoader::GetModuleHandleW,
         Windows::Win32::System::RemoteDesktop::WTSRegisterSessionNotification,

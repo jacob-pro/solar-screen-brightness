@@ -19,7 +19,10 @@ pub use cursive;
 pub use solar_screen_brightness_windows_bindings::cursive;
 
 use crate::config::Config;
+use crate::controller::apply::get_devices;
 use crate::controller::BrightnessController;
+use clap::{AppSettings, Clap};
+use futures::executor::block_on;
 // use crate::wide::WideString;
 
 // use solar_screen_brightness_windows_bindings::Windows::Win32::{
@@ -28,16 +31,74 @@ use crate::controller::BrightnessController;
 //     System::Threading::CreateMutexW,
 // };
 
+#[derive(Clap)]
+#[clap(version = "1.0", author = "Jacob Halsey <jacob@jhalsey.com>")]
+#[clap(setting = AppSettings::ColoredHelp)]
+struct Opts {
+    #[clap(subcommand)]
+    subcmd: Option<SubCommand>,
+}
+
+#[derive(Clap, Default)]
+struct LaunchArgs {
+    #[clap(long, about = "Don't automatically display the console")]
+    hide_console: bool,
+}
+
+#[derive(Clap)]
+struct HeadlessArgs {
+    #[clap(long, about = "Compute and apply brightness once, then exit")]
+    once: bool,
+}
+
+#[derive(Clap)]
+enum SubCommand {
+    #[clap(about = "(default)")]
+    Launch(LaunchArgs),
+    #[clap(about = "Runs dynamic brightness without a tray / GUI")]
+    Headless(HeadlessArgs),
+    #[clap(about = "Lists detected monitors")]
+    ListMonitors,
+}
+
+impl Default for SubCommand {
+    fn default() -> Self {
+        SubCommand::Launch(Default::default())
+    }
+}
+
 fn main() {
-    // if already_running() {
-    //     panic!("Already running")
-    // };
-    env_logger::init();
-    let config = Config::load().ok().unwrap_or_default();
-    let mut controller = BrightnessController::new(config);
-    controller.start();
-    tray::run_tray_application(controller);
-    log::info!("Program exiting gracefully");
+    let _console = win32_subsystem_fix::run();
+    let opts: Opts = match Opts::try_parse() {
+        Err(e) => {
+            e.print().ok();
+            return;
+        }
+        Ok(s) => s,
+    };
+    match opts.subcmd.unwrap_or_default() {
+        SubCommand::Launch(args) => {
+            env_logger::init();
+            let config = Config::load().ok().unwrap_or_default();
+            let mut controller = BrightnessController::new(config);
+            controller.start();
+            tray::run_tray_application(controller, !args.hide_console);
+            log::info!("Program exiting gracefully");
+        }
+        SubCommand::Headless(args) => {
+            env_logger::init();
+            log::info!("Program exiting gracefully");
+        }
+        SubCommand::ListMonitors => {
+            list_monitors();
+        }
+    }
+}
+
+fn list_monitors() {
+    let devices = block_on(get_devices());
+    println!("Detecting attached monitors:");
+    println!("{} monitors", devices.len());
 }
 
 // fn already_running() -> bool {
@@ -53,3 +114,51 @@ fn main() {
 //         return GetLastError() == ERROR_ALREADY_EXISTS;
 //     }
 // }
+
+#[cfg(not(target_os = "windows"))]
+pub(crate) mod win32_subsystem_fix {
+    pub(super) fn run() {}
+}
+
+#[cfg(target_os = "windows")]
+// https://www.tillett.info/2013/05/13/how-to-create-a-windows-program-that-works-as-both-as-a-gui-and-console-application/
+pub(crate) mod win32_subsystem_fix {
+    use solar_screen_brightness_windows_bindings::Windows::Win32::{
+        System::Console::*, UI::KeyboardAndMouseInput::*,
+        UI::WindowsAndMessaging::SetForegroundWindow,
+    };
+
+    pub(super) struct ConsoleAttachment();
+
+    impl Drop for ConsoleAttachment {
+        fn drop(&mut self) {
+            send_enter();
+        }
+    }
+
+    pub(super) fn run() -> Option<ConsoleAttachment> {
+        const ATTACH_PARENT_PROCESS: u32 = -1i32 as u32;
+        unsafe {
+            let attached = AttachConsole(ATTACH_PARENT_PROCESS).as_bool();
+            if attached {
+                println!();
+                return Some(ConsoleAttachment());
+            }
+        }
+        None
+    }
+
+    pub(crate) fn send_enter() {
+        unsafe {
+            let console = GetConsoleWindow();
+            if !console.is_null() && SetForegroundWindow(console).as_bool() {
+                let mut ip: INPUT = std::mem::MaybeUninit::zeroed().assume_init();
+                ip.r#type = INPUT_KEYBOARD;
+                ip.Anonymous.ki.wVk = 0x0D; // virtual-key code for the "Enter" key
+                SendInput(1, &mut ip, std::mem::size_of_val(&ip) as i32);
+                ip.Anonymous.ki.dwFlags = KEYEVENTF_KEYUP; // KEYEVENTF_KEYUP for key release
+                SendInput(1, &mut ip, std::mem::size_of_val(&ip) as i32);
+            }
+        }
+    }
+}

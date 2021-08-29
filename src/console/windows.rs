@@ -59,11 +59,11 @@ impl Console {
             })
         };
         unsafe {
+            SetWindowLongPtrW(data.handle, GWLP_USERDATA, data.as_mut() as *mut _ as isize);
             assert_ne!(
                 SetWindowLongPtrW(data.handle, GWL_WNDPROC, window_proc as isize),
                 0
             );
-            SetWindowLongPtrW(data.handle, GWLP_USERDATA, data.as_mut() as *mut _ as isize);
 
             let mut title = "Solar Screen Brightness".to_wide();
             SetWindowTextW(data.handle, PWSTR(title.as_mut_ptr()));

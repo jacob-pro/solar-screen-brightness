@@ -11,6 +11,7 @@ build = "build.rs"
 [dependencies]
 brightness = { version = "0.2.0", git = "https://github.com/jacob-pro/brightness" }
 chrono = "0.4"
+clap = "3.0.0-beta.4"
 config = "0.10.1"
 directories = "2.0"
 enum-iterator = "0.6.0"

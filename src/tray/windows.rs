@@ -34,7 +34,7 @@ struct WindowData {
     prev_running: bool,
 }
 
-pub fn run(controller: BrightnessController) {
+pub fn run(controller: BrightnessController, launch_console: bool) {
     std::panic::set_hook(Box::new(handle_panic));
     unsafe {
         // Create Window Class
@@ -107,6 +107,10 @@ pub fn run(controller: BrightnessController) {
             WIN32_ERROR(0),
             "Failed to set GWLP_USERDATA"
         );
+
+        if launch_console {
+            window_data.console.show();
+        }
 
         // Start run loop
         let mut msg = std::mem::MaybeUninit::uninit().assume_init();
@@ -204,6 +208,7 @@ fn handle_panic(info: &PanicInfo) {
             PWSTR(title.as_mut_ptr()),
             MB_OK | MB_ICONSTOP,
         );
+        crate::win32_subsystem_fix::send_enter();
         std::process::exit(1);
     }
 }
