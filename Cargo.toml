@@ -31,7 +31,7 @@ qt_widgets = "0.5.0"
 qt_gui = "0.5.0"
 qt_core = "0.5.0"
 libc = "0.2"
-cursive = { default-features = false, features = ["pancurses-backend"], version = "0.16" }
+cursive = { default-features = false, features = ["blt-backend"], version = "0.16" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 solar-screen-brightness-windows-bindings = { path = "./windows-bindings" }
