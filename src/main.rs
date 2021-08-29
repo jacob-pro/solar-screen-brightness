@@ -23,6 +23,10 @@ use crate::controller::apply::get_devices;
 use crate::controller::BrightnessController;
 use clap::{AppSettings, Clap};
 use futures::executor::block_on;
+
+const EXIT_SUCCESS: i32 = 0;
+const EXIT_FAILURE: i32 = 1;
+
 // use crate::wide::WideString;
 
 // use solar_screen_brightness_windows_bindings::Windows::Win32::{
@@ -68,37 +72,66 @@ impl Default for SubCommand {
 }
 
 fn main() {
-    let _console = win32_subsystem_fix::run();
-    let opts: Opts = match Opts::try_parse() {
-        Err(e) => {
-            e.print().ok();
-            return;
+    std::process::exit((|| {
+        let _console = win32_subsystem_fix::run();
+        let opts: Opts = match Opts::try_parse() {
+            Err(e) => {
+                e.print().ok();
+                return EXIT_FAILURE;
+            }
+            Ok(s) => s,
+        };
+        match opts.subcmd.unwrap_or_default() {
+            SubCommand::Launch(args) => launch(args),
+            SubCommand::Headless(args) => headless(args),
+            SubCommand::ListMonitors => list_monitors(),
         }
-        Ok(s) => s,
-    };
-    match opts.subcmd.unwrap_or_default() {
-        SubCommand::Launch(args) => {
-            env_logger::init();
-            let config = Config::load().ok().unwrap_or_default();
-            let mut controller = BrightnessController::new(config);
-            controller.start();
-            tray::run_tray_application(controller, !args.hide_console);
-            log::info!("Program exiting gracefully");
-        }
-        SubCommand::Headless(args) => {
-            env_logger::init();
-            log::info!("Program exiting gracefully");
-        }
-        SubCommand::ListMonitors => {
-            list_monitors();
-        }
-    }
+    })());
 }
 
-fn list_monitors() {
+fn launch(args: LaunchArgs) -> i32 {
+    env_logger::init();
+    let config = Config::load().ok().unwrap_or_default();
+    let mut controller = BrightnessController::new(config);
+    controller.start();
+    tray::run_tray_application(controller, !args.hide_console);
+    log::info!("Program exiting gracefully");
+    EXIT_SUCCESS
+}
+
+fn headless(args: HeadlessArgs) -> i32 {
+    env_logger::init();
+    let config = match Config::load() {
+        Ok(c) => {
+            if c.location.is_none() {
+                log::error!("Config file loaded, but no location has been configured");
+                return EXIT_FAILURE;
+            }
+            c
+        }
+        Err(_) => {
+            return EXIT_FAILURE;
+        }
+    };
+    if args.once {
+        let (_res, wait) = controller::apply::apply(config, true);
+        wait.map(|wait| log::info!("Brightness valid until: {}", wait));
+    } else {
+        let mut controller = BrightnessController::new(config);
+        controller.start();
+        loop {
+            std::thread::park()
+        }
+    }
+    log::info!("Program exiting gracefully");
+    EXIT_SUCCESS
+}
+
+fn list_monitors() -> i32 {
     let devices = block_on(get_devices());
     println!("Detecting attached monitors:");
     println!("{} monitors", devices.len());
+    EXIT_SUCCESS
 }
 
 // fn already_running() -> bool {
@@ -122,7 +155,7 @@ pub(crate) mod win32_subsystem_fix {
 
 #[cfg(target_os = "windows")]
 // https://www.tillett.info/2013/05/13/how-to-create-a-windows-program-that-works-as-both-as-a-gui-and-console-application/
-pub(crate) mod win32_subsystem_fix {
+pub mod win32_subsystem_fix {
     use solar_screen_brightness_windows_bindings::Windows::Win32::{
         System::Console::*, UI::KeyboardAndMouseInput::*,
         UI::WindowsAndMessaging::SetForegroundWindow,
@@ -148,7 +181,9 @@ pub(crate) mod win32_subsystem_fix {
         None
     }
 
-    pub(crate) fn send_enter() {
+    // Call this on an early/unexpected process exit
+    // Otherwise will automatically be called if the main function returns
+    pub fn send_enter() {
         unsafe {
             let console = GetConsoleWindow();
             if !console.is_null() && SetForegroundWindow(console).as_bool() {

@@ -94,7 +94,7 @@ impl TrayApplication {
     }
 }
 
-pub fn run(controller: BrightnessController) {
+pub fn run(controller: BrightnessController, launch_console: bool) {
     QApplication::init(|_| unsafe {
         assert!(QSystemTrayIcon::is_system_tray_available());
         let _tray = TrayApplication::new(controller);

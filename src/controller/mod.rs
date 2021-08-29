@@ -50,15 +50,15 @@ impl BrightnessController {
             let weak = Arc::downgrade(&self.0);
             std::thread::spawn(move || {
                 loop {
-                    let wait = match weak.upgrade() {
-                        None => {
-                            log::info!("BrightnessController thread stopping");
-                            break;
-                        }
-                        Some(this) => {
-                            let (res, next_run) = apply(&this);
-                            this.write().unwrap().set_last_result(res);
+                    let wait = weak.upgrade().and_then(|this| {
+                        let (config, enabled) = this
+                            .read()
+                            .map(|this| (this.config.clone(), this.enabled))
+                            .unwrap();
+                        let (res, next_run) = apply(config, enabled);
+                        this.write().unwrap().set_last_result(res);
 
+                        next_run.map(|next_run| {
                             // Wait for the next run, or a notification
                             let unix_time_now = Utc::now().timestamp();
                             if next_run > unix_time_now {
@@ -66,12 +66,19 @@ impl BrightnessController {
                             } else {
                                 0
                             }
+                        })
+                    });
+                    let rx_wait = match wait {
+                        None => {
+                            log::info!("BrightnessController sleeping indefinitely");
+                            rx.recv().map_err(|e| e.into())
+                        }
+                        Some(wait) => {
+                            log::info!("BrightnessController sleeping for {}s", wait);
+                            rx.recv_timeout(Duration::from_secs(wait as u64))
                         }
                     };
-                    if wait > 0 {
-                        log::info!("BrightnessController sleeping for {}s", wait);
-                    }
-                    match rx.recv_timeout(Duration::from_secs(wait as u64)) {
+                    match rx_wait {
                         Ok(msg) => match msg {
                             Notification::Refresh => {}
                             Notification::Terminate => {

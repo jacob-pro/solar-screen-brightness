@@ -1,8 +1,8 @@
 use crate::brightness::calculate_brightness;
-use crate::controller::BrightnessControllerInner;
+use crate::config::Config;
 use brightness::{Brightness, BrightnessDevice};
 use futures::{executor::block_on, StreamExt};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sunrise_sunset_calculator::binding::unix_t;
 use thiserror::Error;
@@ -31,14 +31,12 @@ pub enum ApplyResult {
     None,
 }
 
-pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (ApplyResult, unix_t) {
-    // Clone the latest config and apply it, don't hold lock
-    let config = inner_ref.read().unwrap().config.clone();
+pub fn apply(config: Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
     // Calculate sunrise and brightness
     match &config.location {
         None => {
             log::warn!("Unable to compute brightness because no location has been configured");
-            return (ApplyResult::Error(ApplyError::NoLocationSet), unix_t::MAX);
+            return (ApplyResult::Error(ApplyError::NoLocationSet), None);
         }
         Some(location) => {
             let now = SystemTime::now();
@@ -61,7 +59,7 @@ pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (Appl
                 visible: ssr.visible,
             };
 
-            if inner_ref.read().unwrap().enabled {
+            if enabled {
                 let mut errors = vec![];
                 let devices = block_on(get_devices());
                 let devices_len = devices.len();
@@ -82,17 +80,17 @@ pub(super) fn apply(inner_ref: &Arc<RwLock<BrightnessControllerInner>>) -> (Appl
                 }
                 if errors.is_empty() {
                     log::info!(
-                        "Brightness applied successfully for {} devices",
+                        "Brightness applied successfully to {} monitors",
                         devices_len
                     );
                 }
                 (
                     ApplyResult::Applied(results, Arc::new(errors)),
-                    br.expiry_time,
+                    Some(br.expiry_time),
                 )
             } else {
                 log::info!("Dynamic brightness is disabled, skipping apply");
-                (ApplyResult::Skipped(results), br.expiry_time)
+                (ApplyResult::Skipped(results), Some(br.expiry_time))
             }
         }
     }
