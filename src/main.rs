@@ -93,7 +93,9 @@ fn launch(args: LaunchArgs) -> i32 {
         log::info!("Program exiting gracefully");
         EXIT_SUCCESS
     } else {
-        show_console_in_another_process();
+        if !args.hide_console {
+            show_console_in_another_process();
+        }
         EXIT_FAILURE
     }
 }
