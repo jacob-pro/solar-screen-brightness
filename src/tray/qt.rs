@@ -27,7 +27,7 @@ impl StaticUpcast<QObject> for TrayApplication {
 }
 
 impl TrayApplication {
-    unsafe fn new(controller: BrightnessController) -> Rc<Self> {
+    unsafe fn new(controller: BrightnessController, launch_console: bool) -> Rc<Self> {
         let tray_icon = QSystemTrayIcon::new();
 
         // Set up the icon
@@ -48,7 +48,10 @@ impl TrayApplication {
 
         let (tx, rx) = sync_channel::<Message>(0);
         let handle = TrayApplicationHandle(Handle(tx));
-        let console = Console::new(handle, controller);
+        let mut console = Console::new(handle, controller);
+        if launch_console {
+            console.show();
+        }
 
         let this = Rc::new(Self {
             tray: tray_icon,
@@ -97,7 +100,7 @@ impl TrayApplication {
 pub fn run(controller: BrightnessController, launch_console: bool) {
     QApplication::init(|_| unsafe {
         assert!(QSystemTrayIcon::is_system_tray_available());
-        let _tray = TrayApplication::new(controller);
+        let _tray = TrayApplication::new(controller, launch_console);
         QApplication::exec()
     });
 }
@@ -121,4 +124,7 @@ impl Handle {
     }
 }
 
-pub fn show_console_in_another_process() {}
+pub fn show_console_in_another_process() {
+    log::error!("show_console_in_another_process() is not yet implemented for Unix");
+    // TODO: Implement this for Unix
+}

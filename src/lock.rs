@@ -1,5 +1,3 @@
-use std::ffi::c_void;
-
 /// Make sure there is only one instance of solar screen brightness per session
 
 #[cfg(target_os = "windows")]
@@ -13,6 +11,7 @@ pub fn acquire_lock() -> bool {
         },
         System::Threading::{CreateMutexW, GetCurrentProcess, OpenProcessToken},
     };
+    use std::ffi::c_void;
     unsafe {
         // https://www.codeproject.com/Articles/538/Avoiding-Multiple-Instances-of-an-Application
         let mut name = String::from("solar-screen-brightness");
@@ -62,5 +61,9 @@ pub fn acquire_lock() -> bool {
 
 #[cfg(not(target_os = "windows"))]
 pub fn acquire_lock() -> bool {
+    log::error!(
+        "acquire_lock() is not yet implemented for Unix, be careful not to run this twice!"
+    );
+    // TODO: Implement this for Linux
     true
 }
