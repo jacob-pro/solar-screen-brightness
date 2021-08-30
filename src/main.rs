@@ -1,5 +1,3 @@
-// #![windows_subsystem = "console"]
-
 #[macro_use]
 extern crate validator_derive;
 
@@ -24,6 +22,7 @@ use crate::controller::apply::get_devices;
 use crate::controller::BrightnessController;
 use crate::lock::acquire_lock;
 use crate::tray::show_console_in_another_process;
+use ::brightness::Brightness;
 use clap::{AppSettings, Clap};
 use futures::executor::block_on;
 
@@ -133,9 +132,39 @@ fn headless(args: HeadlessArgs) -> i32 {
 
 fn list_monitors() -> i32 {
     let devices = block_on(get_devices());
-    println!("Detecting attached monitors:");
-    println!("{} monitors", devices.len());
-    EXIT_SUCCESS
+    for r in &devices {
+        match r {
+            Ok(device) => {
+                let info = (|| -> Result<_, ::brightness::Error> {
+                    let mut info = block_on(device.device_info())?;
+                    let name = block_on(device.device_name())?;
+                    info.insert("device_name".to_owned(), name);
+                    Ok(info)
+                })();
+                match info {
+                    Ok(info) => {
+                        println!();
+                        let mut keys = info.keys().collect::<Vec<_>>();
+                        keys.sort();
+                        for k in keys {
+                            println!("{}: \"{}\"", k, info.get(k).unwrap());
+                        }
+                    }
+                    Err(e) => {
+                        println!("\nFound unknown device:\n{}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                println!("\nFailed to load device:\n{}", e);
+            }
+        }
+    }
+    if devices.iter().find(|e| e.is_err()).is_some() {
+        EXIT_FAILURE
+    } else {
+        EXIT_SUCCESS
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
