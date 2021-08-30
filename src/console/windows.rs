@@ -1,8 +1,9 @@
 use crate::assets::Assets;
-use crate::controller::StateRef;
-use crate::tray::TrayMessageSender;
-use crate::tui::run;
+use crate::controller::BrightnessController;
+use crate::tray::TrayApplicationHandle;
+use crate::tui::launch_cursive;
 use crate::wide::{get_user_data, WideString};
+use std::time::SystemTime;
 
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
@@ -20,39 +21,52 @@ struct WindowData {
     old_proc: isize,
 }
 
-pub struct Console(Box<WindowData>);
+pub(super) struct Console {
+    tray: TrayApplicationHandle,
+    controller: BrightnessController,
+    window_data: Option<Box<WindowData>>,
+}
 
 impl Console {
-    pub fn create(tray: TrayMessageSender, state: StateRef) -> Self {
-        std::thread::spawn(move || {
-            run(tray, state);
-        });
-        let handle = await_handle();
-        let mut console = unsafe {
-            Console(Box::new(WindowData {
-                handle,
-                old_proc: GetWindowLongPtrW(handle, GWL_WNDPROC),
-            }))
-        };
-        console.configure();
-        console.show();
-        console
+    pub(super) fn new(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
+        Self {
+            tray,
+            controller,
+            window_data: None,
+        }
     }
 
-    fn configure(&mut self) {
+    pub(super) fn show(&mut self) {
+        if self.window_data.is_none() {
+            self.initialise();
+        }
+        self.window_data.as_mut().unwrap().show();
+    }
+
+    pub(super) fn hide(&self) {
+        self.window_data.as_ref().map(|d| d.hide());
+    }
+
+    fn initialise(&mut self) {
+        let tray = self.tray.clone();
+        let controller = self.controller.clone();
+        launch_cursive(tray, controller);
+        let handle = await_handle();
+        let mut data = unsafe {
+            Box::new(WindowData {
+                handle,
+                old_proc: GetWindowLongPtrW(handle, GWL_WNDPROC),
+            })
+        };
         unsafe {
+            SetWindowLongPtrW(data.handle, GWLP_USERDATA, data.as_mut() as *mut _ as isize);
             assert_ne!(
-                SetWindowLongPtrW(self.0.handle, GWL_WNDPROC, window_proc as isize),
+                SetWindowLongPtrW(data.handle, GWL_WNDPROC, window_proc as isize),
                 0
-            );
-            SetWindowLongPtrW(
-                self.0.handle,
-                GWLP_USERDATA,
-                self.0.as_mut() as *mut _ as isize,
             );
 
             let mut title = "Solar Screen Brightness".to_wide();
-            SetWindowTextW(self.0.handle, PWSTR(title.as_mut_ptr()));
+            SetWindowTextW(data.handle, PWSTR(title.as_mut_ptr()));
             let mut asset = Assets::get("icon-256.png")
                 .expect("Icon missing")
                 .into_owned();
@@ -63,26 +77,19 @@ impl Console {
                 0x00030000,
             );
             SendMessageW(
-                self.0.handle,
+                data.handle,
                 WM_SETICON,
                 WPARAM(ICON_BIG as usize),
                 LPARAM(hicon.0),
             );
             SendMessageW(
-                self.0.handle,
+                data.handle,
                 WM_SETICON,
                 WPARAM(ICON_SMALL as usize),
                 LPARAM(hicon.0),
             );
         }
-    }
-
-    pub fn show(&self) {
-        self.0.show();
-    }
-
-    pub fn hide(&self) {
-        self.0.hide();
+        self.window_data = Some(data);
     }
 }
 
@@ -109,15 +116,18 @@ unsafe extern "system" fn window_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     let window_data: &mut WindowData = get_user_data(&hwnd).unwrap();
+    let intercept_close = || {
+        log::info!("Intercepted console window close, hiding instead");
+        window_data.hide();
+        LRESULT(0)
+    };
     match msg {
         WM_CLOSE => {
-            window_data.hide();
-            return LRESULT(0);
+            return intercept_close();
         }
         WM_SYSCOMMAND => {
             if wparam == WPARAM(SC_CLOSE as usize) {
-                window_data.hide();
-                return LRESULT(0);
+                return intercept_close();
             }
         }
         _ => {}
@@ -133,10 +143,18 @@ fn await_handle() -> HWND {
         // https://github.com/Bill-Gray/PDCursesMod/blob/master/wingui/pdcscrn.c#L2097
         static PDC_hWnd: HWND;
     }
+    let start = SystemTime::now();
     loop {
         unsafe {
+            let dur = SystemTime::now().duration_since(start).unwrap();
+            let ms = dur.as_micros() as f64 / 1000.0;
             if !PDC_hWnd.is_null() {
+                log::info!("Found valid PDC_hWnd in {:.2} ms", ms);
                 return PDC_hWnd;
+            } else {
+                if ms > 50.0 {
+                    log::warn!("Have not yet found a valid PDC_hWnd after {:.2} ms", ms);
+                }
             }
         }
     }

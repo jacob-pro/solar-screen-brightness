@@ -1,8 +1,8 @@
 use crate::controller::apply::{ApplyResult, SolarAndBrightnessResults};
+use crate::cursive::traits::Nameable;
+use crate::cursive::views::{Button, Dialog, DummyView, LinearLayout, ScrollView, TextView};
+use crate::cursive::Cursive;
 use chrono::{DateTime, Local};
-use cursive::traits::Nameable;
-use cursive::views::{Button, Dialog, DummyView, LinearLayout, ScrollView, TextView};
-use cursive::Cursive;
 
 const STATUS_TEXT: &str = "SHOW_STATUS_TEXT";
 

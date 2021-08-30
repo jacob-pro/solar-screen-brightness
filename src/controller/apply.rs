@@ -1,5 +1,5 @@
 use crate::brightness::calculate_brightness;
-use crate::controller::StateRef;
+use crate::config::Config;
 use brightness::{Brightness, BrightnessDevice};
 use futures::{executor::block_on, StreamExt};
 use std::sync::Arc;
@@ -31,12 +31,13 @@ pub enum ApplyResult {
     None,
 }
 
-pub fn apply(state: &StateRef) -> (ApplyResult, unix_t) {
-    // Clone the latest config and apply it
-    let config = state.read().unwrap().get_config().clone();
+pub fn apply(config: Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
     // Calculate sunrise and brightness
     match &config.location {
-        None => return (ApplyResult::Error(ApplyError::NoLocationSet), unix_t::MAX),
+        None => {
+            log::warn!("Unable to compute brightness because no location has been configured");
+            return (ApplyResult::Error(ApplyError::NoLocationSet), None);
+        }
         Some(location) => {
             let now = SystemTime::now();
             let epoch_time_now = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
@@ -47,6 +48,7 @@ pub fn apply(state: &StateRef) -> (ApplyResult, unix_t) {
             );
             let ssr = input.compute().unwrap();
             let br = calculate_brightness(&config, &ssr, epoch_time_now);
+            log::info!("Computed base brightness of {}%", br.brightness);
 
             let results = SolarAndBrightnessResults {
                 base_brightness: br.brightness,
@@ -57,33 +59,43 @@ pub fn apply(state: &StateRef) -> (ApplyResult, unix_t) {
                 visible: ssr.visible,
             };
 
-            if state.read().unwrap().get_enabled() {
+            if enabled {
                 let mut errors = vec![];
                 let devices = block_on(get_devices());
+                let devices_len = devices.len();
                 for dev in devices {
                     match dev {
                         Ok(mut dev) => match block_on(dev.set(br.brightness)) {
                             Err(e) => {
+                                log::error!("An error occurred setting monitor brightness: {}", e);
                                 errors.push(e);
                             }
                             _ => {}
                         },
                         Err(e) => {
+                            log::error!("An error occurred getting monitors: {}", e);
                             errors.push(e);
                         }
                     }
                 }
+                if errors.is_empty() {
+                    log::info!(
+                        "Brightness applied successfully to {} monitors",
+                        devices_len
+                    );
+                }
                 (
                     ApplyResult::Applied(results, Arc::new(errors)),
-                    br.expiry_time,
+                    Some(br.expiry_time),
                 )
             } else {
-                (ApplyResult::Skipped(results), br.expiry_time)
+                log::info!("Dynamic brightness is disabled, skipping apply");
+                (ApplyResult::Skipped(results), Some(br.expiry_time))
             }
         }
     }
 }
 
-async fn get_devices() -> Vec<Result<BrightnessDevice, brightness::Error>> {
+pub async fn get_devices() -> Vec<Result<BrightnessDevice, brightness::Error>> {
     brightness::brightness_devices().collect::<Vec<_>>().await
 }

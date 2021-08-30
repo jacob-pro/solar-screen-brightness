@@ -1,8 +1,10 @@
 use crate::config::{Config, Location};
+use crate::cursive::traits::{Nameable, Resizable};
+use crate::cursive::views::{
+    Button, Dialog, DummyView, EditView, LinearLayout, ListView, NamedView,
+};
+use crate::cursive::Cursive;
 use crate::tui::UserData;
-use cursive::traits::{Nameable, Resizable};
-use cursive::views::{Button, Dialog, DummyView, EditView, LinearLayout, ListView, NamedView};
-use cursive::Cursive;
 use geocoding::Openstreetmap;
 use validator::{Validate, ValidationErrors};
 
@@ -80,7 +82,7 @@ fn attempt_save(cursive: &mut Cursive) -> bool {
     match create_config(cursive) {
         Ok(cfg) => {
             let ud = cursive.user_data::<UserData>().unwrap();
-            ud.state.write().unwrap().set_config(cfg.clone());
+            ud.controller.set_config(cfg.clone());
             match cfg.save() {
                 Ok(_) => return true,
                 Err(e) => {
@@ -97,7 +99,7 @@ fn attempt_save(cursive: &mut Cursive) -> bool {
 
 fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
     let ud = cursive.user_data::<UserData>().unwrap();
-    let mut config = ud.state.read().unwrap().get_config().clone();
+    let mut config = ud.controller.get_config();
     config.brightness_day = cursive
         .find_name::<EditView>(DAY_BRIGHTNESS)
         .unwrap()
