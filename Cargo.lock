@@ -185,22 +185,23 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "brightness"
-version = "0.2.0"
-source = "git+https://github.com/jacob-pro/brightness#bef225ec397d5cb25ed6c893af0a1c7fd188e56f"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3051f04f52afc0b6f6bb2d50d5a882632a5392ba137715d54a8cde59b756814c"
 dependencies = [
  "async-trait",
- "brightness-windows-bindings",
- "either",
+ "brightness-windows",
  "futures",
- "maplit",
  "thiserror",
+ "windows",
  "zbus",
 ]
 
 [[package]]
-name = "brightness-windows-bindings"
+name = "brightness-windows"
 version = "0.1.0"
-source = "git+https://github.com/jacob-pro/brightness#bef225ec397d5cb25ed6c893af0a1c7fd188e56f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbc9fc53df7cd4894802642447ff10d76c9f2eff1e179e4b645df3fb428b97ef"
 dependencies = [
  "windows",
 ]
@@ -2223,6 +2224,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
+ "maplit",
  "qt_core",
  "qt_gui",
  "qt_widgets",

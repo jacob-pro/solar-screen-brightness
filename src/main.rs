@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate validator_derive;
+#[macro_use]
+extern crate maplit;
 
 mod assets;
 mod brightness;
@@ -9,20 +11,19 @@ mod controller;
 mod lock;
 mod tray;
 mod tui;
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 mod wide;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(windows))]
 pub use cursive;
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub use solar_screen_brightness_windows_bindings::cursive;
 
 use crate::config::Config;
-use crate::controller::apply::get_devices;
+use crate::controller::apply::{get_devices, get_properties};
 use crate::controller::BrightnessController;
 use crate::lock::acquire_lock;
 use crate::tray::show_console_in_another_process;
-use ::brightness::Brightness;
 use clap::{AppSettings, Clap};
 use futures::executor::block_on;
 
@@ -136,27 +137,19 @@ fn list_monitors() -> i32 {
     let devices = block_on(get_devices());
     for r in &devices {
         match r {
-            Ok(device) => {
-                let info = (|| -> Result<_, ::brightness::Error> {
-                    let mut info = block_on(device.device_info())?;
-                    let name = block_on(device.device_name())?;
-                    info.insert("device_name".to_owned(), name);
-                    Ok(info)
-                })();
-                match info {
-                    Ok(info) => {
-                        println!();
-                        let mut keys = info.keys().collect::<Vec<_>>();
-                        keys.sort();
-                        for k in keys {
-                            println!("{}: \"{}\"", k, info.get(k).unwrap());
-                        }
-                    }
-                    Err(e) => {
-                        println!("\nFound unknown device:\n{}", e);
+            Ok(device) => match block_on(get_properties(device)) {
+                Ok(info) => {
+                    println!();
+                    let mut keys = info.keys().collect::<Vec<_>>();
+                    keys.sort();
+                    for k in keys {
+                        println!("{}: \"{}\"", k, info.get(k).unwrap());
                     }
                 }
-            }
+                Err(e) => {
+                    println!("\nFound unknown device:\n{}", e);
+                }
+            },
             Err(e) => {
                 println!("\nFailed to load device:\n{}", e);
             }

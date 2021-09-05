@@ -1,8 +1,8 @@
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(windows))]
 #[path = "bearlib.rs"]
 mod console_impl;
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 #[path = "windows.rs"]
 mod console_impl;
 

@@ -1,14 +1,13 @@
 /// Make sure there is only one instance of solar screen brightness per session
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub fn acquire_lock() -> bool {
-    use crate::wide::WideString;
+    use crate::wide::{set_and_get_error, WideString};
+    use solar_screen_brightness_windows_bindings::windows::HRESULT;
     use solar_screen_brightness_windows_bindings::Windows::Win32::{
         Foundation::{BOOL, HANDLE, PWSTR},
         Security::{GetTokenInformation, TokenStatistics, TOKEN_QUERY, TOKEN_STATISTICS},
-        System::Diagnostics::Debug::{
-            GetLastError, SetLastError, ERROR_ALREADY_EXISTS, ERROR_SUCCESS,
-        },
+        System::Diagnostics::Debug::ERROR_ALREADY_EXISTS,
         System::Threading::{CreateMutexW, GetCurrentProcess, OpenProcessToken},
     };
     use std::ffi::c_void;
@@ -18,7 +17,7 @@ pub fn acquire_lock() -> bool {
         let mut token = HANDLE::NULL;
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).as_bool() {
             let mut len = 0;
-            let mut data: TOKEN_STATISTICS = std::mem::MaybeUninit::zeroed().assume_init();
+            let mut data = TOKEN_STATISTICS::default();
             let ptr = ((&mut data) as *mut TOKEN_STATISTICS) as *mut c_void;
             if GetTokenInformation(
                 token,
@@ -36,30 +35,30 @@ pub fn acquire_lock() -> bool {
             };
         }
         let mut name_wide = name.as_str().to_wide();
-        SetLastError(ERROR_SUCCESS.0);
-        CreateMutexW(
-            std::ptr::null_mut(),
-            BOOL::from(true),
-            PWSTR(name_wide.as_mut_ptr()),
-        );
-
-        let e = GetLastError();
-        if e == ERROR_ALREADY_EXISTS {
-            log::error!("Failed to acquire lock - the application is already running");
-            return false;
-        } else if e == ERROR_SUCCESS {
-            log::info!("Acquired lock: {}", name);
-        } else {
-            log::warn!(
-                "Failed to acquire lock, system error code: {}, ignoring",
-                e.0
+        match set_and_get_error(|| {
+            CreateMutexW(
+                std::ptr::null_mut(),
+                BOOL::from(true),
+                PWSTR(name_wide.as_mut_ptr()),
             )
+        }) {
+            Ok(_) => {
+                log::info!("Acquired lock: {}", name);
+                true
+            }
+            Err(e) if e.code() == HRESULT::from_win32(ERROR_ALREADY_EXISTS.0) => {
+                log::error!("Failed to acquire lock - the application is already running");
+                false
+            }
+            Err(e) => {
+                log::warn!("Failed to acquire lock, ignoring: {}", e);
+                true
+            }
         }
     }
-    true
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(unix)]
 pub fn acquire_lock() -> bool {
     log::error!(
         "acquire_lock() is not yet implemented for Unix, be careful not to run this twice!"
