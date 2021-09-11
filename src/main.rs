@@ -22,7 +22,7 @@ pub use solar_screen_brightness_windows_bindings::cursive;
 use crate::config::Config;
 use crate::controller::apply::{get_devices, get_properties};
 use crate::controller::BrightnessController;
-use crate::lock::acquire_lock;
+use crate::lock::ApplicationLock;
 use crate::tray::show_console_in_another_process;
 use clap::{AppSettings, Clap};
 use futures::executor::block_on;
@@ -86,18 +86,22 @@ fn main() {
 
 fn launch(args: LaunchArgs) -> i32 {
     env_logger::init();
-    if acquire_lock() {
-        let config = Config::load().ok().unwrap_or_default();
-        let mut controller = BrightnessController::new(config);
-        controller.start();
-        tray::run_tray_application(controller, !args.hide_console);
-        log::info!("Program exiting gracefully");
-        EXIT_SUCCESS
-    } else {
-        if !args.hide_console {
-            show_console_in_another_process();
+    match ApplicationLock::acquire() {
+        Some(_lock) => {
+            let config = Config::load().ok().unwrap_or_default();
+            let mut controller = BrightnessController::new(config);
+            controller.start();
+            tray::run_tray_application(controller, !args.hide_console);
+            log::info!("Program exiting gracefully");
+            EXIT_SUCCESS
         }
-        EXIT_FAILURE
+        None => {
+            log::error!("Failed to acquire lock - the application is already running");
+            if !args.hide_console {
+                show_console_in_another_process();
+            }
+            EXIT_FAILURE
+        }
     }
 }
 
@@ -119,14 +123,18 @@ fn headless(args: HeadlessArgs) -> i32 {
         let (_res, wait) = controller::apply::apply(config, true);
         wait.map(|wait| log::info!("Brightness valid until: {}", wait));
     } else {
-        if acquire_lock() {
-            let mut controller = BrightnessController::new(config);
-            controller.start();
-            loop {
-                std::thread::park();
+        match ApplicationLock::acquire() {
+            Some(_lock) => {
+                let mut controller = BrightnessController::new(config);
+                controller.start();
+                loop {
+                    std::thread::park();
+                }
             }
-        } else {
-            return EXIT_FAILURE;
+            None => {
+                log::error!("Failed to acquire lock - the application is already running");
+                return EXIT_FAILURE;
+            }
         }
     }
     log::info!("Program exiting gracefully");

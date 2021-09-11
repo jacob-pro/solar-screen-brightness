@@ -9,7 +9,7 @@ use std::{fs, io};
 use validator::{Validate, ValidationErrors};
 
 lazy_static! {
-    static ref CONFIG_DIR: PathBuf = {
+    pub static ref CONFIG_DIR: PathBuf = {
         let mut p = BaseDirs::new().unwrap().config_dir().to_owned();
         p.push("Solar Screen Brightness");
         fs::create_dir_all(&p).unwrap();
