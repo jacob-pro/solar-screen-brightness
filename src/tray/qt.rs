@@ -1,6 +1,7 @@
 use crate::assets::Assets;
 use crate::console::Console;
 use crate::controller::BrightnessController;
+use crate::lock::ApplicationLock;
 use crate::tray::TrayApplicationHandle;
 use cpp_core::{Ptr, StaticUpcast};
 use cursive::Cursive;
@@ -18,6 +19,7 @@ struct TrayApplication {
     action: QPtr<QAction>,
     rx: Receiver<Message>,
     console: RefCell<Console>,
+    lock: ApplicationLock,
 }
 
 impl StaticUpcast<QObject> for TrayApplication {
@@ -27,7 +29,11 @@ impl StaticUpcast<QObject> for TrayApplication {
 }
 
 impl TrayApplication {
-    unsafe fn new(controller: BrightnessController, launch_console: bool) -> Rc<Self> {
+    unsafe fn new(
+        controller: BrightnessController,
+        lock: ApplicationLock,
+        launch_console: bool,
+    ) -> Rc<Self> {
         let tray_icon = QSystemTrayIcon::new();
 
         // Set up the icon
@@ -59,6 +65,7 @@ impl TrayApplication {
             action,
             rx,
             console: RefCell::new(console),
+            lock,
         });
 
         let timer = QTimer::new_1a(&this.tray);
@@ -78,6 +85,9 @@ impl TrayApplication {
 
     #[slot(SlotNoArgs)]
     unsafe fn on_event_loop(self: &Rc<Self>) {
+        if self.lock.should_show_console() {
+            self.console.borrow_mut().show();
+        }
         match self.rx.try_recv() {
             Ok(message) => match message {
                 Message::CloseConsole => {
@@ -97,10 +107,10 @@ impl TrayApplication {
     }
 }
 
-pub fn run(controller: BrightnessController, launch_console: bool) {
+pub fn run(controller: BrightnessController, lock: ApplicationLock, launch_console: bool) {
     QApplication::init(|_| unsafe {
         assert!(QSystemTrayIcon::is_system_tray_available());
-        let _tray = TrayApplication::new(controller, launch_console);
+        let _tray = TrayApplication::new(controller, lock, launch_console);
         QApplication::exec()
     });
 }

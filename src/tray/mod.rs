@@ -8,6 +8,7 @@ mod tray_impl;
 
 use crate::controller::BrightnessController;
 use crate::cursive::Cursive;
+use crate::lock::ApplicationLock;
 
 #[derive(Clone)]
 pub struct TrayApplicationHandle(tray_impl::Handle);
@@ -27,9 +28,13 @@ impl TrayApplicationHandle {
 }
 
 /// Blocking call, runs on this thread
-pub fn run_tray_application(controller: BrightnessController, launch_console: bool) {
+pub fn run_tray_application(
+    controller: BrightnessController,
+    lock: ApplicationLock,
+    launch_console: bool,
+) {
     log::info!("Launching tray application");
-    tray_impl::run(controller, launch_console);
+    tray_impl::run(controller, lock, launch_console);
     log::info!("Tray application stopping");
 }
 

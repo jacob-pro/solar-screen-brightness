@@ -2,6 +2,7 @@ use crate::assets::Assets;
 use crate::console::Console;
 use crate::controller::BrightnessController;
 use crate::cursive::Cursive;
+use crate::lock::ApplicationLock;
 use crate::tray::TrayApplicationHandle;
 use crate::wide::{get_user_data, loword, set_and_get_error, WideString};
 use std::panic::PanicInfo;
@@ -34,7 +35,7 @@ struct WindowData {
     show_console_msg_code: u32,
 }
 
-pub fn run(controller: BrightnessController, launch_console: bool) {
+pub fn run(controller: BrightnessController, _lock: ApplicationLock, launch_console: bool) {
     std::panic::set_hook(Box::new(handle_panic));
     unsafe {
         // Create Window Class

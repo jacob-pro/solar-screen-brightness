@@ -3,7 +3,7 @@ use nix::errno::Errno;
 use nix::fcntl::{open, OFlag};
 use nix::sys::stat::Mode;
 use nix::unistd::mkfifo;
-use nix::unistd::{close, write};
+use nix::unistd::{close, read, write};
 use std::os::unix::io::RawFd;
 
 pub(super) struct Lock {
@@ -53,6 +53,19 @@ impl Lock {
                 return Some(Lock { fd: None });
             }
         }
+    }
+
+    pub fn should_show_console(&self) -> bool {
+        self.fd
+            .as_ref()
+            .map(|fd| {
+                let mut buffer = vec![0 as u8; 1];
+                match read(*fd, buffer.as_mut_slice()) {
+                    Ok(r) => r > 0,
+                    Err(_) => false,
+                }
+            })
+            .unwrap_or(false)
     }
 }
 

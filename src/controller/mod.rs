@@ -156,13 +156,13 @@ impl BrightnessControllerInner {
     }
 
     fn register(&mut self, o: Weak<dyn Observer + Send + Sync>) {
-        log::info!("Registering observer");
+        log::trace!("Registering observer");
         self.clean_observers();
         self.observers.push(o);
     }
 
     fn unregister(&mut self, o: Weak<dyn Observer + Send + Sync>) {
-        log::info!("Unregistering observer");
+        log::trace!("Unregistering observer");
         let observers = std::mem::take(&mut self.observers);
         self.observers = observers
             .into_iter()
@@ -210,7 +210,7 @@ impl BrightnessControllerInner {
             .filter(|p| {
                 let is_some = p.upgrade().is_some();
                 if !is_some {
-                    log::info!("Dropping null observer");
+                    log::trace!("Dropping null observer");
                 }
                 is_some
             })

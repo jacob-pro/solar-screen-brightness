@@ -87,11 +87,11 @@ fn main() {
 fn launch(args: LaunchArgs) -> i32 {
     env_logger::init();
     match ApplicationLock::acquire() {
-        Some(_lock) => {
+        Some(lock) => {
             let config = Config::load().ok().unwrap_or_default();
             let mut controller = BrightnessController::new(config);
             controller.start();
-            tray::run_tray_application(controller, !args.hide_console);
+            tray::run_tray_application(controller, lock, !args.hide_console);
             log::info!("Program exiting gracefully");
             EXIT_SUCCESS
         }
