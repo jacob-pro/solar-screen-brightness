@@ -14,7 +14,7 @@ mod tui;
 #[cfg(windows)]
 mod wide;
 
-#[cfg(not(windows))]
+#[cfg(unix)]
 pub use cursive;
 #[cfg(windows)]
 pub use solar_screen_brightness_windows_bindings::cursive;
@@ -23,7 +23,6 @@ use crate::config::Config;
 use crate::controller::apply::{get_devices, get_properties};
 use crate::controller::BrightnessController;
 use crate::lock::ApplicationLock;
-use crate::tray::show_console_in_another_process;
 use clap::{AppSettings, Clap};
 use futures::executor::block_on;
 
@@ -98,7 +97,7 @@ fn launch(args: LaunchArgs) -> i32 {
         None => {
             log::error!("Failed to acquire lock - the application is already running");
             if !args.hide_console {
-                show_console_in_another_process();
+                ApplicationLock::show_console_in_owning_process();
             }
             EXIT_FAILURE
         }
@@ -170,10 +169,10 @@ fn list_monitors() -> i32 {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(windows))]
 pub fn console_subsystem_fix() {}
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub fn console_subsystem_fix() {
     use solar_screen_brightness_windows_bindings::Windows::Win32::{
         System::Console::GetConsoleWindow,

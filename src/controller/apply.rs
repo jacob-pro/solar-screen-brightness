@@ -113,7 +113,7 @@ pub async fn get_properties(
     })
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 pub async fn get_properties(
     device: &BrightnessDevice,
 ) -> Result<HashMap<&'static str, String>, brightness::Error> {

@@ -1,3 +1,4 @@
+pub use crate::tray::SHOW_CONSOLE_MSG;
 use crate::wide::{set_and_get_error, WideString};
 use anyhow::anyhow;
 use solar_screen_brightness_windows_bindings::windows::HRESULT;
@@ -58,5 +59,10 @@ impl Lock {
                 }
             }
         }
+    }
+
+    pub fn show_console_in_owning_process() -> Result<(), anyhow::Error> {
+        crate::tray::show_console_in_another_process();
+        Ok(())
     }
 }

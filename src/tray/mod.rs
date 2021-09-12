@@ -1,4 +1,4 @@
-#[cfg(not(windows))]
+#[cfg(unix)]
 #[path = "qt.rs"]
 mod tray_impl;
 
@@ -38,7 +38,5 @@ pub fn run_tray_application(
     log::info!("Tray application stopping");
 }
 
-pub fn show_console_in_another_process() {
-    log::info!("Attempting to show the already running application");
-    tray_impl::show_console_in_another_process();
-}
+#[cfg(windows)]
+pub use tray_impl::show_console_in_another_process;

@@ -133,8 +133,3 @@ impl Handle {
         self.0.send(Message::ExitApplication).unwrap();
     }
 }
-
-pub fn show_console_in_another_process() {
-    log::error!("show_console_in_another_process() is not yet implemented for Unix");
-    // TODO: Implement this for Unix
-}

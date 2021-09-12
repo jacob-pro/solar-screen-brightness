@@ -16,7 +16,16 @@ impl ApplicationLock {
     }
 
     #[cfg(unix)]
+    #[inline]
     pub fn should_show_console(&self) -> bool {
         self.0.should_show_console()
+    }
+
+    #[inline]
+    pub fn show_console_in_owning_process() {
+        log::info!("Attempting to show the already running application");
+        if let Err(e) = lock_impl::Lock::show_console_in_owning_process() {
+            log::error!("Failed to show running application: {}", e);
+        }
     }
 }
