@@ -5,8 +5,9 @@ use crate::cursive::views::{
 };
 use crate::cursive::Cursive;
 use crate::tui::UserData;
+use anyhow::anyhow;
 use geocoding::Openstreetmap;
-use validator::{Validate, ValidationErrors};
+use validator::Validate;
 
 const DAY_BRIGHTNESS: &str = "EDIT_CONFIG_DAY_BRIGHTNESS";
 const NIGHT_BRIGHTNESS: &str = "EDIT_CONFIG_NIGHT_BRIGHTNESS";
@@ -91,13 +92,13 @@ fn attempt_save(cursive: &mut Cursive) -> bool {
             };
         }
         Err(e) => {
-            cursive.add_layer(Dialog::info(e));
+            cursive.add_layer(Dialog::info(e.to_string()));
         }
     }
     false
 }
 
-fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
+fn create_config(cursive: &mut Cursive) -> Result<Config, anyhow::Error> {
     let ud = cursive.user_data::<UserData>().unwrap();
     let mut config = ud.controller.get_config();
     config.brightness_day = cursive
@@ -105,36 +106,34 @@ fn create_config(cursive: &mut Cursive) -> Result<Config, String> {
         .unwrap()
         .get_content()
         .parse()
-        .map_err(|_| "Day Brightness must be a number".to_owned())?;
+        .map_err(|_| anyhow!("Day Brightness must be a number"))?;
     config.brightness_night = cursive
         .find_name::<EditView>(NIGHT_BRIGHTNESS)
         .unwrap()
         .get_content()
         .parse()
-        .map_err(|_| "Night Brightness must be a number".to_owned())?;
+        .map_err(|_| anyhow!("Night Brightness must be a number"))?;
     config.transition_mins = cursive
         .find_name::<EditView>(TRANSITION_MINS)
         .unwrap()
         .get_content()
         .parse()
-        .map_err(|_| "Transition minutes must be a number".to_owned())?;
+        .map_err(|_| anyhow!("Transition minutes must be a number"))?;
     config.location = Some(Location {
         latitude: cursive
             .find_name::<EditView>(LATITUDE)
             .unwrap()
             .get_content()
             .parse()
-            .map_err(|_| "Latitude must be a number".to_owned())?,
+            .map_err(|_| anyhow!("Latitude must be a number"))?,
         longitude: cursive
             .find_name::<EditView>(LONGITUDE)
             .unwrap()
             .get_content()
             .parse()
-            .map_err(|_| "Longitude must be a number".to_owned())?,
+            .map_err(|_| anyhow!("Longitude must be a number"))?,
     });
-    config
-        .validate()
-        .map_err(|e: ValidationErrors| e.to_string())?;
+    config.validate()?;
     Ok(config)
 }
 
@@ -142,7 +141,7 @@ fn on_apply(cursive: &mut Cursive) {
     let cfg = create_config(cursive);
     match &cfg {
         Err(e) => {
-            cursive.add_layer(Dialog::info(e));
+            cursive.add_layer(Dialog::info(e.to_string()));
         }
         _ => {}
     };
@@ -188,7 +187,7 @@ fn find_address(cursive: &mut Cursive) {
             cursive.pop_layer();
         }
         Err(e) => {
-            cursive.add_layer(Dialog::info(e));
+            cursive.add_layer(Dialog::info(e.to_string()));
         }
     }
 }

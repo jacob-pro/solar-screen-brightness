@@ -25,7 +25,7 @@ impl ApplicationLock {
     pub fn show_console_in_owning_process() {
         log::info!("Attempting to show the already running application");
         if let Err(e) = lock_impl::Lock::show_console_in_owning_process() {
-            log::error!("Failed to show running application: {}", e);
+            log::error!("Failed to show running application: {:#}", e);
         }
     }
 }

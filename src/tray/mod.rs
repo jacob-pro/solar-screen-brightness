@@ -39,4 +39,4 @@ pub fn run_tray_application(
 }
 
 #[cfg(windows)]
-pub use tray_impl::show_console_in_another_process;
+pub use tray_impl::show_console_in_owning_process;

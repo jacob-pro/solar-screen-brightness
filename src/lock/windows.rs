@@ -60,7 +60,6 @@ impl Lock {
     }
 
     pub fn show_console_in_owning_process() -> Result<(), anyhow::Error> {
-        crate::tray::show_console_in_another_process();
-        Ok(())
+        crate::tray::show_console_in_owning_process()
     }
 }

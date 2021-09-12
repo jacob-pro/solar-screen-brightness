@@ -1,3 +1,4 @@
+use anyhow::bail;
 use config::{File, FileFormat};
 use directories::BaseDirs;
 use geocoding::GeocodingError;
@@ -6,7 +7,7 @@ use serde::__private::Formatter;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::{fs, io};
-use validator::{Validate, ValidationErrors};
+use validator::Validate;
 
 lazy_static! {
     pub static ref CONFIG_DIR: PathBuf = {
@@ -44,14 +45,12 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load() -> Result<Self, String> {
+    pub fn load() -> Result<Self, anyhow::Error> {
         match (|| {
             let mut s = config::Config::new();
-            s.merge(File::from(CONFIG_FILE.as_path()).format(FileFormat::Toml))
-                .map_err(|e| e.to_string())?;
-            let res: Config = s.try_into().map_err(|e| e.to_string())?;
-            res.validate()
-                .map_err(|e: ValidationErrors| e.to_string())?;
+            s.merge(File::from(CONFIG_FILE.as_path()).format(FileFormat::Toml))?;
+            let res: Config = s.try_into()?;
+            res.validate()?;
             Ok(res)
         })() {
             Ok(r) => {
@@ -100,23 +99,23 @@ impl std::fmt::Display for Location {
 }
 
 impl Location {
-    pub fn geocode_address<G>(coder: G, address: &str) -> Result<Self, String>
+    pub fn geocode_address<G>(coder: G, address: &str) -> Result<Self, anyhow::Error>
     where
         G: geocoding::Forward<f64>,
     {
         match (|| {
             let x = coder.forward(address).map_err(|x| match x {
-                GeocodingError::Request(r) => format!("{}", r),
-                _ => format!("{}", x),
+                GeocodingError::Request(r) => anyhow::Error::from(r),
+                _ => anyhow::Error::from(x),
             })?;
             match x.first() {
-                None => Err("No matches found".to_owned()),
+                None => bail!("No matches found"),
                 Some(p) => {
                     let l = Location {
                         latitude: p.y(),
                         longitude: p.x(),
                     };
-                    l.validate().map_err(|e: ValidationErrors| e.to_string())?;
+                    l.validate()?;
                     Ok(l)
                 }
             }

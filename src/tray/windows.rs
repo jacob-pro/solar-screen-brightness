@@ -5,8 +5,7 @@ use crate::cursive::Cursive;
 use crate::lock::ApplicationLock;
 use crate::tray::TrayApplicationHandle;
 use crate::wide::{get_user_data, loword, set_and_get_error, WideString};
-use std::panic::PanicInfo;
-
+use anyhow::Context;
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
     System::LibraryLoader::GetModuleHandleW,
@@ -22,6 +21,7 @@ use solar_screen_brightness_windows_bindings::Windows::Win32::{
         WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
     },
 };
+use std::panic::PanicInfo;
 
 const SHOW_CONSOLE_MSG: &str = "solar-screen-brightness.show_console";
 const CALLBACK_MSG: u32 = WM_APP + 1;
@@ -214,11 +214,14 @@ fn handle_panic(info: &PanicInfo) {
     }
 }
 
-pub fn show_console_in_another_process() {
+pub fn show_console_in_owning_process() -> Result<(), anyhow::Error> {
     const HWND_BROADCAST: HWND = HWND(0xffff);
     let mut msg_name = SHOW_CONSOLE_MSG.to_wide();
     unsafe {
-        let msg = RegisterWindowMessageW(PWSTR(msg_name.as_mut_ptr()));
-        PostMessageW(HWND_BROADCAST, msg, WPARAM(0), LPARAM(0));
+        let msg = set_and_get_error(|| RegisterWindowMessageW(PWSTR(msg_name.as_mut_ptr())))
+            .context("Registering window message")?;
+        set_and_get_error(|| PostMessageW(HWND_BROADCAST, msg, WPARAM(0), LPARAM(0)))
+            .context("Posting window broadcast")?;
     }
+    Ok(())
 }

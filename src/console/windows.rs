@@ -3,8 +3,6 @@ use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use crate::tui::launch_cursive;
 use crate::wide::{get_user_data, set_and_get_error, WideString};
-use std::time::SystemTime;
-
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
     UI::WindowsAndMessaging::{
@@ -14,6 +12,7 @@ use solar_screen_brightness_windows_bindings::Windows::Win32::{
         WM_SYSCOMMAND, WNDPROC,
     },
 };
+use std::time::SystemTime;
 
 // Passed as a pointer - it must be at a fixed heap address
 struct WindowData {
