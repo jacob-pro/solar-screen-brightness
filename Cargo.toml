@@ -9,7 +9,8 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-brightness = { version = "0.2.0", git = "https://github.com/jacob-pro/brightness" }
+anyhow = "1.0.43"
+brightness = { version = "0.3.0" }
 chrono = "0.4"
 clap = "3.0.0-beta.4"
 config = "0.10.1"
@@ -20,6 +21,7 @@ futures = "0.3"
 geocoding = "0.2.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
+maplit = "1.0.2"
 rust-embed = "5.5.1"
 serde = { version = "1.0.110", features = ["derive"] }
 sunrise-sunset-calculator = "0.1.0"
@@ -28,13 +30,13 @@ toml = "0.5"
 validator = "0.10"
 validator_derive = "0.10"
 
-[target.'cfg(not(target_os = "windows"))'.dependencies]
+[target.'cfg(unix)'.dependencies]
 cpp_core = "0.6.0"
 qt_widgets = "0.5.0"
 qt_gui = "0.5.0"
 qt_core = "0.5.0"
-libc = "0.2"
+nix = "0.22.1"
 cursive = { default-features = false, features = ["blt-backend"], version = "0.16" }
 
-[target.'cfg(target_os = "windows")'.dependencies]
+[target.'cfg(windows)'.dependencies]
 solar-screen-brightness-windows-bindings = { path = "./windows-bindings" }

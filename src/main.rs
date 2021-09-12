@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate validator_derive;
+#[macro_use]
+extern crate maplit;
 
 mod assets;
 mod brightness;
@@ -9,20 +11,18 @@ mod controller;
 mod lock;
 mod tray;
 mod tui;
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 mod wide;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(unix)]
 pub use cursive;
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub use solar_screen_brightness_windows_bindings::cursive;
 
 use crate::config::Config;
-use crate::controller::apply::get_devices;
+use crate::controller::apply::{get_devices, get_properties};
 use crate::controller::BrightnessController;
-use crate::lock::acquire_lock;
-use crate::tray::show_console_in_another_process;
-use ::brightness::Brightness;
+use crate::lock::ApplicationLock;
 use clap::{AppSettings, Clap};
 use futures::executor::block_on;
 
@@ -85,18 +85,22 @@ fn main() {
 
 fn launch(args: LaunchArgs) -> i32 {
     env_logger::init();
-    if acquire_lock() {
-        let config = Config::load().ok().unwrap_or_default();
-        let mut controller = BrightnessController::new(config);
-        controller.start();
-        tray::run_tray_application(controller, !args.hide_console);
-        log::info!("Program exiting gracefully");
-        EXIT_SUCCESS
-    } else {
-        if !args.hide_console {
-            show_console_in_another_process();
+    match ApplicationLock::acquire() {
+        Some(lock) => {
+            let config = Config::load().ok().unwrap_or_default();
+            let mut controller = BrightnessController::new(config);
+            controller.start();
+            tray::run_tray_application(controller, lock, !args.hide_console);
+            log::info!("Program exiting gracefully");
+            EXIT_SUCCESS
         }
-        EXIT_FAILURE
+        None => {
+            log::error!("Failed to acquire lock - the application is already running");
+            if !args.hide_console {
+                ApplicationLock::show_console_in_owning_process();
+            }
+            EXIT_FAILURE
+        }
     }
 }
 
@@ -118,14 +122,18 @@ fn headless(args: HeadlessArgs) -> i32 {
         let (_res, wait) = controller::apply::apply(config, true);
         wait.map(|wait| log::info!("Brightness valid until: {}", wait));
     } else {
-        if acquire_lock() {
-            let mut controller = BrightnessController::new(config);
-            controller.start();
-            loop {
-                std::thread::park();
+        match ApplicationLock::acquire() {
+            Some(_lock) => {
+                let mut controller = BrightnessController::new(config);
+                controller.start();
+                loop {
+                    std::thread::park();
+                }
             }
-        } else {
-            return EXIT_FAILURE;
+            None => {
+                log::error!("Failed to acquire lock - the application is already running");
+                return EXIT_FAILURE;
+            }
         }
     }
     log::info!("Program exiting gracefully");
@@ -136,27 +144,19 @@ fn list_monitors() -> i32 {
     let devices = block_on(get_devices());
     for r in &devices {
         match r {
-            Ok(device) => {
-                let info = (|| -> Result<_, ::brightness::Error> {
-                    let mut info = block_on(device.device_info())?;
-                    let name = block_on(device.device_name())?;
-                    info.insert("device_name".to_owned(), name);
-                    Ok(info)
-                })();
-                match info {
-                    Ok(info) => {
-                        println!();
-                        let mut keys = info.keys().collect::<Vec<_>>();
-                        keys.sort();
-                        for k in keys {
-                            println!("{}: \"{}\"", k, info.get(k).unwrap());
-                        }
-                    }
-                    Err(e) => {
-                        println!("\nFound unknown device:\n{}", e);
+            Ok(device) => match block_on(get_properties(device)) {
+                Ok(info) => {
+                    println!();
+                    let mut keys = info.keys().collect::<Vec<_>>();
+                    keys.sort();
+                    for k in keys {
+                        println!("{}: \"{}\"", k, info.get(k).unwrap());
                     }
                 }
-            }
+                Err(e) => {
+                    println!("\nFound unknown device:\n{}", e);
+                }
+            },
             Err(e) => {
                 println!("\nFailed to load device:\n{}", e);
             }
@@ -169,10 +169,10 @@ fn list_monitors() -> i32 {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(windows))]
 pub fn console_subsystem_fix() {}
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub fn console_subsystem_fix() {
     use solar_screen_brightness_windows_bindings::Windows::Win32::{
         System::Console::GetConsoleWindow,

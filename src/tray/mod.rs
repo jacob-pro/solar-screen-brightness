@@ -1,13 +1,14 @@
-#[cfg(not(target_os = "windows"))]
+#[cfg(unix)]
 #[path = "qt.rs"]
 mod tray_impl;
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 #[path = "windows.rs"]
 mod tray_impl;
 
 use crate::controller::BrightnessController;
 use crate::cursive::Cursive;
+use crate::lock::ApplicationLock;
 
 #[derive(Clone)]
 pub struct TrayApplicationHandle(tray_impl::Handle);
@@ -27,13 +28,15 @@ impl TrayApplicationHandle {
 }
 
 /// Blocking call, runs on this thread
-pub fn run_tray_application(controller: BrightnessController, launch_console: bool) {
+pub fn run_tray_application(
+    controller: BrightnessController,
+    lock: ApplicationLock,
+    launch_console: bool,
+) {
     log::info!("Launching tray application");
-    tray_impl::run(controller, launch_console);
+    tray_impl::run(controller, lock, launch_console);
     log::info!("Tray application stopping");
 }
 
-pub fn show_console_in_another_process() {
-    log::info!("Attempting to show the already running application");
-    tray_impl::show_console_in_another_process();
-}
+#[cfg(windows)]
+pub use tray_impl::show_console_in_owning_process;

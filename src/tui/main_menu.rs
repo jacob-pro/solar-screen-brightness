@@ -105,7 +105,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
                     ud.controller.set_config(c);
                     "Successfully loaded from disk".to_owned()
                 }
-                Err(e) => e,
+                Err(e) => e.to_string(),
             };
             cursive.add_layer(Dialog::info(msg));
         }

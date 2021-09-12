@@ -2,6 +2,7 @@ use crate::brightness::calculate_brightness;
 use crate::config::Config;
 use brightness::{Brightness, BrightnessDevice};
 use futures::{executor::block_on, StreamExt};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sunrise_sunset_calculator::binding::unix_t;
@@ -98,4 +99,25 @@ pub fn apply(config: Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
 
 pub async fn get_devices() -> Vec<Result<BrightnessDevice, brightness::Error>> {
     brightness::brightness_devices().collect::<Vec<_>>().await
+}
+
+#[cfg(windows)]
+pub async fn get_properties(
+    device: &BrightnessDevice,
+) -> Result<HashMap<&'static str, String>, brightness::Error> {
+    use brightness::BrightnessExt;
+    Ok(hashmap! {
+        "device_name" => device.device_name().await?,
+        "device_description" => device.device_description().await?,
+        "device_key" => device.device_registry_key().await?,
+    })
+}
+
+#[cfg(target_os = "linux")]
+pub async fn get_properties(
+    device: &BrightnessDevice,
+) -> Result<HashMap<&'static str, String>, brightness::Error> {
+    Ok(hashmap! {
+        "device_name" => device.device_name().await?,
+    })
 }

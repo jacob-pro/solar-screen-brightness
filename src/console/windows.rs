@@ -2,9 +2,7 @@ use crate::assets::Assets;
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use crate::tui::launch_cursive;
-use crate::wide::{get_user_data, WideString};
-use std::time::SystemTime;
-
+use crate::wide::{get_user_data, set_and_get_error, WideString};
 use solar_screen_brightness_windows_bindings::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
     UI::WindowsAndMessaging::{
@@ -14,6 +12,7 @@ use solar_screen_brightness_windows_bindings::Windows::Win32::{
         WM_SYSCOMMAND, WNDPROC,
     },
 };
+use std::time::SystemTime;
 
 // Passed as a pointer - it must be at a fixed heap address
 struct WindowData {
@@ -59,35 +58,45 @@ impl Console {
             })
         };
         unsafe {
-            SetWindowLongPtrW(data.handle, GWLP_USERDATA, data.as_mut() as *mut _ as isize);
-            assert_ne!(
-                SetWindowLongPtrW(data.handle, GWL_WNDPROC, window_proc as isize),
-                0
-            );
+            set_and_get_error(|| {
+                SetWindowLongPtrW(data.handle, GWLP_USERDATA, data.as_mut() as *mut _ as isize)
+            })
+            .unwrap();
+            set_and_get_error(|| SetWindowLongPtrW(data.handle, GWL_WNDPROC, window_proc as isize))
+                .unwrap();
 
             let mut title = "Solar Screen Brightness".to_wide();
-            SetWindowTextW(data.handle, PWSTR(title.as_mut_ptr()));
+            set_and_get_error(|| SetWindowTextW(data.handle, PWSTR(title.as_mut_ptr()))).unwrap();
             let mut asset = Assets::get("icon-256.png")
                 .expect("Icon missing")
                 .into_owned();
-            let hicon = CreateIconFromResource(
-                asset.as_mut_ptr(),
-                asset.len() as u32,
-                BOOL::from(true),
-                0x00030000,
-            );
-            SendMessageW(
-                data.handle,
-                WM_SETICON,
-                WPARAM(ICON_BIG as usize),
-                LPARAM(hicon.0),
-            );
-            SendMessageW(
-                data.handle,
-                WM_SETICON,
-                WPARAM(ICON_SMALL as usize),
-                LPARAM(hicon.0),
-            );
+            let hicon = set_and_get_error(|| {
+                CreateIconFromResource(
+                    asset.as_mut_ptr(),
+                    asset.len() as u32,
+                    BOOL::from(true),
+                    0x00030000,
+                )
+            })
+            .unwrap();
+            set_and_get_error(|| {
+                SendMessageW(
+                    data.handle,
+                    WM_SETICON,
+                    WPARAM(ICON_BIG as usize),
+                    LPARAM(hicon.0),
+                )
+            })
+            .unwrap();
+            set_and_get_error(|| {
+                SendMessageW(
+                    data.handle,
+                    WM_SETICON,
+                    WPARAM(ICON_SMALL as usize),
+                    LPARAM(hicon.0),
+                )
+            })
+            .unwrap();
         }
         self.window_data = Some(data);
     }
@@ -96,15 +105,15 @@ impl Console {
 impl WindowData {
     pub fn show(&self) {
         unsafe {
-            ShowWindow(self.handle, SW_RESTORE);
-            BringWindowToTop(self.handle);
-            SetForegroundWindow(self.handle);
+            set_and_get_error(|| ShowWindow(self.handle, SW_RESTORE)).unwrap();
+            set_and_get_error(|| BringWindowToTop(self.handle)).unwrap();
+            set_and_get_error(|| SetForegroundWindow(self.handle)).unwrap();
         }
     }
 
     pub fn hide(&self) {
         unsafe {
-            ShowWindow(self.handle, SW_HIDE);
+            set_and_get_error(|| ShowWindow(self.handle, SW_HIDE)).unwrap();
         }
     }
 }
@@ -132,7 +141,7 @@ unsafe extern "system" fn window_proc(
         }
         _ => {}
     };
-    let ptr = window_data.old_proc as *const ();
+    let ptr = window_data.old_proc as *mut ();
     let code: WNDPROC = std::mem::transmute(ptr);
     CallWindowProcW(Some(code), hwnd, msg, wparam, lparam)
 }
