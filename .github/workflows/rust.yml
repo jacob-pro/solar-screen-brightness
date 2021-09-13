@@ -40,12 +40,20 @@ jobs:
         working-directory: ./installer
 
   check_style:
+    strategy:
+      matrix:
+        dir: [ app, installer, windows ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
       - name: Cargo Format Check
         run: cargo fmt -- --check
+        working-directory: ./${{ matrix.dir }}
+
+      - name: Install Cargo Sort
+        run: cargo install cargo-sort
 
       - name: Cargo Sort Check
-        run: cargo install cargo-sort && cargo-sort --check
+        run: cargo-sort --check
+        working-directory: ./${{ matrix.dir }}
