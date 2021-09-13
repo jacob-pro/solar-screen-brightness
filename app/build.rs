@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 fn main() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib");
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../lib");
     bearlib(path);
 }
 

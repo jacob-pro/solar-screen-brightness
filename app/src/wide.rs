@@ -1,5 +1,5 @@
-use solar_screen_brightness_windows_bindings::windows::{self, HRESULT};
-use solar_screen_brightness_windows_bindings::Windows::Win32::{
+use solar_screen_brightness_windows::windows::{self, HRESULT};
+use solar_screen_brightness_windows::Windows::Win32::{
     Foundation::HWND,
     System::Diagnostics::Debug::SetLastError,
     UI::WindowsAndMessaging::{GetWindowLongPtrW, GWLP_USERDATA},

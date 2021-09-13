@@ -1,6 +1,6 @@
 use crate::wide::{set_and_get_error, WideString};
-use solar_screen_brightness_windows_bindings::windows::HRESULT;
-use solar_screen_brightness_windows_bindings::Windows::Win32::{
+use solar_screen_brightness_windows::windows::HRESULT;
+use solar_screen_brightness_windows::Windows::Win32::{
     Foundation::{BOOL, HANDLE, PWSTR},
     Security::{GetTokenInformation, TokenStatistics, TOKEN_QUERY, TOKEN_STATISTICS},
     System::Diagnostics::Debug::ERROR_ALREADY_EXISTS,

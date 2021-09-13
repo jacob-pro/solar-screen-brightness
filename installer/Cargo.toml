@@ -1,0 +1,9 @@
+[package]
+name = "solar-screen-brightness-installer"
+version = "0.1.0"
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+rust-embed = { version = "6.2.0", features = ["debug-embed"] }
+

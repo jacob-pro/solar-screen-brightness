@@ -3,7 +3,7 @@ use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use crate::tui::launch_cursive;
 use crate::wide::{get_user_data, set_and_get_error, WideString};
-use solar_screen_brightness_windows_bindings::Windows::Win32::{
+use solar_screen_brightness_windows::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
     UI::WindowsAndMessaging::{
         BringWindowToTop, CallWindowProcW, CreateIconFromResource, GetWindowLongPtrW, SendMessageW,

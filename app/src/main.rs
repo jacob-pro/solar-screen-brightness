@@ -17,7 +17,7 @@ mod wide;
 #[cfg(unix)]
 pub use cursive;
 #[cfg(windows)]
-pub use solar_screen_brightness_windows_bindings::cursive;
+pub use solar_screen_brightness_windows::cursive;
 
 use crate::config::Config;
 use crate::controller::apply::{get_devices, get_properties};
@@ -174,7 +174,7 @@ pub fn console_subsystem_fix() {}
 
 #[cfg(windows)]
 pub fn console_subsystem_fix() {
-    use solar_screen_brightness_windows_bindings::Windows::Win32::{
+    use solar_screen_brightness_windows::Windows::Win32::{
         System::Console::GetConsoleWindow,
         System::Threading::GetCurrentProcessId,
         UI::WindowsAndMessaging::{GetWindowThreadProcessId, ShowWindow, SW_HIDE},

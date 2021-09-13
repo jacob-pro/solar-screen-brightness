@@ -31,8 +31,13 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - name: Cargo Test
+      - name: Cargo Test (App)
         run: cargo test
+        working-directory: ./app
+
+      - name: Cargo Test (Installer)
+        run: cargo test
+        working-directory: ./installer
 
   check_style:
     runs-on: ubuntu-latest
