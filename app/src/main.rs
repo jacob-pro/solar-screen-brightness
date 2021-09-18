@@ -24,6 +24,7 @@ use crate::controller::apply::{get_devices, get_properties};
 use crate::controller::BrightnessController;
 use crate::lock::ApplicationLock;
 use clap::{AppSettings, Clap};
+use env_logger::Env;
 use futures::executor::block_on;
 
 const EXIT_SUCCESS: i32 = 0;
@@ -84,7 +85,7 @@ fn main() {
 }
 
 fn launch(args: LaunchArgs) -> i32 {
-    env_logger::init();
+    init_logger();
     match ApplicationLock::acquire() {
         Some(lock) => {
             let config = Config::load().ok().unwrap_or_default();
@@ -105,7 +106,7 @@ fn launch(args: LaunchArgs) -> i32 {
 }
 
 fn headless(args: HeadlessArgs) -> i32 {
-    env_logger::init();
+    init_logger();
     let config = match Config::load() {
         Ok(c) => {
             if c.location.is_none() {
@@ -169,29 +170,19 @@ fn list_monitors() -> i32 {
     }
 }
 
+fn init_logger() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+}
+
 #[cfg(not(windows))]
 pub fn console_subsystem_fix() {}
 
 #[cfg(windows)]
 pub fn console_subsystem_fix() {
-    use solar_screen_brightness_windows::Windows::Win32::{
-        System::Console::GetConsoleWindow,
-        System::Threading::GetCurrentProcessId,
-        UI::WindowsAndMessaging::{GetWindowThreadProcessId, ShowWindow, SW_HIDE},
-    };
     // This app is built with /SUBSYTEM:CONSOLE
     // This is so that we can use the console functions or view the logs
     // However when launched as a desktop application Windows auto starts a console window
     // in this process, so we need to hide it
-    unsafe {
-        let console = GetConsoleWindow();
-        if !console.is_null() {
-            let mut console_pid = 0;
-            GetWindowThreadProcessId(console, &mut console_pid);
-            if console_pid == GetCurrentProcessId() {
-                log::info!("Hiding Windows console subsystem window");
-                ShowWindow(console, SW_HIDE);
-            }
-        }
-    }
+    log::trace!("Ensuring Windows Console hidden if necessary");
+    solar_screen_brightness_windows::hide_process_console_window();
 }

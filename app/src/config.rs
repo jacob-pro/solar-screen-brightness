@@ -11,17 +11,15 @@ use validator::Validate;
 
 lazy_static! {
     pub static ref CONFIG_DIR: PathBuf = {
-        let mut p = BaseDirs::new().unwrap().config_dir().to_owned();
-        p.push("Solar Screen Brightness");
+        let p = BaseDirs::new()
+            .unwrap()
+            .config_dir()
+            .join("Solar Screen Brightness");
+        log::trace!("Ensuring {:?} folder exists", p);
         fs::create_dir_all(&p).unwrap();
         p
     };
-    static ref CONFIG_FILE: PathBuf = {
-        let mut base: PathBuf = CONFIG_DIR.clone();
-        base.push("config");
-        base.set_extension("toml");
-        base
-    };
+    static ref CONFIG_FILE: PathBuf = CONFIG_DIR.join("config.toml");
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
