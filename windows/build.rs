@@ -5,6 +5,7 @@ fn main() {
         Windows::Win32::UI::Shell::*,
         Windows::Win32::UI::KeyboardAndMouseInput::*,
         Windows::Win32::Security::{GetTokenInformation, TOKEN_STATISTICS},
+        Windows::Win32::System::Com::{IPersistFile, CoCreateInstance, CoInitializeEx},
         Windows::Win32::System::Console::*,
         Windows::Win32::System::Threading::*,
         Windows::Win32::System::LibraryLoader::GetModuleHandleW,

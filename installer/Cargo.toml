@@ -13,3 +13,5 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 rust-embed = { version = "6.2.0", features = ["debug-embed"] }
 
+[target.'cfg(windows)'.dependencies]
+solar-screen-brightness-windows = { path = "../windows" }
