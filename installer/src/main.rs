@@ -38,7 +38,7 @@ fn main() {
         if let Err(e) = match opts.sub_command.unwrap_or_default() {
             SubCommand::Tui => install::install(),
             SubCommand::Install => install::install().and_then(|_| install::launch()),
-            SubCommand::Uninstall => install::install(),
+            SubCommand::Uninstall => uninstall::uninstall(),
         } {
             log::error!("{:#}", e);
             return 1;
