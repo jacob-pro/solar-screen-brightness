@@ -1,7 +1,7 @@
-use crate::wide::{set_and_get_error, WideString};
+use solar_screen_brightness_windows::set_and_get_error;
 use solar_screen_brightness_windows::windows::HRESULT;
 use solar_screen_brightness_windows::Windows::Win32::{
-    Foundation::{BOOL, HANDLE, PWSTR},
+    Foundation::{BOOL, HANDLE},
     Security::{GetTokenInformation, TokenStatistics, TOKEN_QUERY, TOKEN_STATISTICS},
     System::Diagnostics::Debug::ERROR_ALREADY_EXISTS,
     System::Threading::{CreateMutexW, GetCurrentProcess, OpenProcessToken},
@@ -35,13 +35,8 @@ impl Lock {
                     log::warn!("GetTokenInformation failed when generating lock name");
                 };
             }
-            let mut name_wide = name.as_str().to_wide();
             match set_and_get_error(|| {
-                CreateMutexW(
-                    std::ptr::null_mut(),
-                    BOOL::from(true),
-                    PWSTR(name_wide.as_mut_ptr()),
-                )
+                CreateMutexW(std::ptr::null_mut(), BOOL::from(true), name.as_str())
             }) {
                 Ok(_) => {
                     log::info!("Acquired lock: {}", name);

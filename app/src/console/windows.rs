@@ -2,9 +2,9 @@ use crate::assets::Assets;
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use crate::tui::launch_cursive;
-use crate::wide::{get_user_data, set_and_get_error, WideString};
+use crate::APP_NAME;
 use solar_screen_brightness_windows::Windows::Win32::{
-    Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
+    Foundation::{BOOL, HWND, LPARAM, LRESULT, WPARAM},
     UI::WindowsAndMessaging::{
         BringWindowToTop, CallWindowProcW, CreateIconFromResource, GetWindowLongPtrW, SendMessageW,
         SetForegroundWindow, SetWindowLongPtrW, SetWindowTextW, ShowWindow, GWLP_USERDATA,
@@ -12,6 +12,7 @@ use solar_screen_brightness_windows::Windows::Win32::{
         WM_SYSCOMMAND, WNDPROC,
     },
 };
+use solar_screen_brightness_windows::{set_and_get_error, WindowDataExtension};
 use std::time::SystemTime;
 
 // Passed as a pointer - it must be at a fixed heap address
@@ -65,8 +66,7 @@ impl Console {
             set_and_get_error(|| SetWindowLongPtrW(data.handle, GWL_WNDPROC, window_proc as isize))
                 .unwrap();
 
-            let mut title = "Solar Screen Brightness".to_wide();
-            set_and_get_error(|| SetWindowTextW(data.handle, PWSTR(title.as_mut_ptr()))).unwrap();
+            set_and_get_error(|| SetWindowTextW(data.handle, APP_NAME)).unwrap();
             let mut asset = Assets::get("icon-256.png")
                 .expect("Icon missing")
                 .into_owned();
@@ -124,7 +124,7 @@ unsafe extern "system" fn window_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
-    let window_data: &mut WindowData = get_user_data(&hwnd).unwrap();
+    let window_data: &mut WindowData = hwnd.get_user_data().unwrap();
     let intercept_close = || {
         log::info!("Intercepted console window close, hiding instead");
         window_data.hide();

@@ -5,6 +5,7 @@ use crate::cursive::view::Resizable;
 use crate::cursive::views::{Dialog, HideableView, NamedView, ScrollView, SelectView, TextView};
 use crate::cursive::Cursive;
 use crate::tui::UserData;
+use crate::APP_NAME;
 use enum_iterator::IntoEnumIterator;
 
 const MAIN_VIEW: &str = "MAIN_MENU_VIEW";
@@ -40,8 +41,7 @@ pub fn create() -> NamedView<HideableView<Dialog>> {
     }
     select.set_on_submit(on_submit);
     HideableView::new(
-        Dialog::around(ScrollView::new(select.with_name(MAIN_SELECT)))
-            .title("Solar Screen Brightness"),
+        Dialog::around(ScrollView::new(select.with_name(MAIN_SELECT))).title(APP_NAME),
     )
     .with_name(MAIN_VIEW)
 }

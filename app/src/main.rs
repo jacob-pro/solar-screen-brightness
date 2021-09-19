@@ -11,8 +11,6 @@ mod controller;
 mod lock;
 mod tray;
 mod tui;
-#[cfg(windows)]
-mod wide;
 
 #[cfg(unix)]
 pub use cursive;
@@ -26,6 +24,8 @@ use crate::lock::ApplicationLock;
 use clap::{AppSettings, Clap};
 use env_logger::Env;
 use futures::executor::block_on;
+
+pub const APP_NAME: &'static str = "Solar Screen Brightness";
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;

@@ -4,7 +4,7 @@ use crate::controller::BrightnessController;
 use crate::cursive::Cursive;
 use crate::lock::ApplicationLock;
 use crate::tray::TrayApplicationHandle;
-use crate::wide::{get_user_data, loword, set_and_get_error, WideString};
+use crate::APP_NAME;
 use anyhow::Context;
 use solar_screen_brightness_windows::Windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
@@ -21,6 +21,7 @@ use solar_screen_brightness_windows::Windows::Win32::{
         WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
     },
 };
+use solar_screen_brightness_windows::{loword, set_and_get_error, WideString, WindowDataExtension};
 use std::panic::PanicInfo;
 
 const SHOW_CONSOLE_MSG: &str = "solar-screen-brightness.show_console";
@@ -48,12 +49,11 @@ pub fn run(controller: BrightnessController, _lock: ApplicationLock, launch_cons
         let atom = set_and_get_error(|| RegisterClassW(&window_class)).unwrap();
 
         // Create Window
-        let mut name = "tray".to_wide();
         let hwnd = set_and_get_error(|| {
             CreateWindowExW(
                 WINDOW_EX_STYLE(0),
                 PWSTR(atom as *mut u16),
-                PWSTR(name.as_mut_ptr()),
+                "tray",
                 WS_OVERLAPPEDWINDOW,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
@@ -68,12 +68,11 @@ pub fn run(controller: BrightnessController, _lock: ApplicationLock, launch_cons
         .unwrap();
 
         // Register Window data
-        let mut msg_name = SHOW_CONSOLE_MSG.to_wide();
         let mut window_data = Box::new(WindowData {
             console: Console::new(TrayApplicationHandle(Handle(hwnd)), controller.clone()),
             controller,
             prev_running: false,
-            show_console_msg_code: RegisterWindowMessageW(PWSTR(msg_name.as_mut_ptr())),
+            show_console_msg_code: RegisterWindowMessageW(SHOW_CONSOLE_MSG),
         });
         set_and_get_error(|| {
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, window_data.as_mut() as *mut _ as isize)
@@ -99,7 +98,7 @@ pub fn run(controller: BrightnessController, _lock: ApplicationLock, launch_cons
 
         // Create tray icon
         let mut tray_icon: NOTIFYICONDATAW = std::mem::MaybeUninit::zeroed().assume_init();
-        let mut name = "Solar Screen Brightness".to_wide();
+        let mut name = APP_NAME.to_wide();
         name.resize(tray_icon.szTip.len(), 0);
         let bytes = &name[..tray_icon.szTip.len()];
         tray_icon.hWnd = hwnd;
@@ -140,7 +139,7 @@ unsafe extern "system" fn tray_window_proc(
     w_param: WPARAM,
     l_param: LPARAM,
 ) -> LRESULT {
-    match get_user_data::<WindowData>(&hwnd) {
+    match hwnd.get_user_data::<WindowData>() {
         None => {}
         Some(app) => match msg {
             CALLBACK_MSG => match loword(l_param.0 as u32) {
@@ -202,12 +201,11 @@ impl Handle {
 fn handle_panic(info: &PanicInfo) {
     log::error!("Panic: {}", info);
     unsafe {
-        let mut title = "Fatal Error".to_wide();
-        let mut text = format!("{}", info).as_str().to_wide();
+        let text = format!("{}", info);
         MessageBoxW(
             HWND::NULL,
-            PWSTR(text.as_mut_ptr()),
-            PWSTR(title.as_mut_ptr()),
+            text.as_str(),
+            "Fatal Error",
             MB_OK | MB_ICONSTOP,
         );
         std::process::exit(1);
@@ -216,9 +214,8 @@ fn handle_panic(info: &PanicInfo) {
 
 pub fn show_console_in_owning_process() -> Result<(), anyhow::Error> {
     const HWND_BROADCAST: HWND = HWND(0xffff);
-    let mut msg_name = SHOW_CONSOLE_MSG.to_wide();
     unsafe {
-        let msg = set_and_get_error(|| RegisterWindowMessageW(PWSTR(msg_name.as_mut_ptr())))
+        let msg = set_and_get_error(|| RegisterWindowMessageW(SHOW_CONSOLE_MSG))
             .context("Registering window message")?;
         set_and_get_error(|| PostMessageW(HWND_BROADCAST, msg, WPARAM(0), LPARAM(0)))
             .context("Posting window broadcast")?;
