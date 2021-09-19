@@ -15,3 +15,6 @@ rust-embed = { version = "6.2.0", features = ["debug-embed"] }
 
 [target.'cfg(windows)'.dependencies]
 solar-screen-brightness-windows = { path = "../windows" }
+
+[build-dependencies]
+winres = "0.1"

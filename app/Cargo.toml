@@ -37,3 +37,6 @@ cursive = { default-features = false, features = ["blt-backend"], version = "0.1
 
 [target.'cfg(windows)'.dependencies]
 solar-screen-brightness-windows = { path = "../windows" }
+
+[build-dependencies]
+winres = "0.1"

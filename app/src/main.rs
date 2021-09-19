@@ -68,7 +68,14 @@ impl Default for SubCommand {
 
 fn main() {
     std::process::exit((|| {
-        console_subsystem_fix();
+        if cfg!(windows) {
+            // This app is built with /SUBSYTEM:CONSOLE
+            // This is so that we can use the console functions or view the logs
+            // However when launched as a desktop application Windows auto starts a console window
+            // in this process, so we need to hide it
+            log::trace!("Ensuring Windows Console hidden if necessary");
+            solar_screen_brightness_windows::hide_process_console_window();
+        }
         let opts: Opts = match Opts::try_parse() {
             Err(e) => {
                 e.print().ok();
@@ -172,17 +179,4 @@ fn list_monitors() -> i32 {
 
 fn init_logger() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-}
-
-#[cfg(not(windows))]
-pub fn console_subsystem_fix() {}
-
-#[cfg(windows)]
-pub fn console_subsystem_fix() {
-    // This app is built with /SUBSYTEM:CONSOLE
-    // This is so that we can use the console functions or view the logs
-    // However when launched as a desktop application Windows auto starts a console window
-    // in this process, so we need to hide it
-    log::trace!("Ensuring Windows Console hidden if necessary");
-    solar_screen_brightness_windows::hide_process_console_window();
 }

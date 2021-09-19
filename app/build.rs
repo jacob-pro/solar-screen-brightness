@@ -1,8 +1,13 @@
 use std::path::PathBuf;
 
 fn main() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../lib");
-    bearlib(path);
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    if cfg!(windows) {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("../assets/icon-256.ico");
+        res.compile().unwrap();
+    }
+    bearlib(manifest_dir.join("../lib"));
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]

@@ -3,6 +3,15 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
+    compile_and_copy_app();
+    if cfg!(windows) {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("../assets/icon-256.ico");
+        res.compile().unwrap();
+    }
+}
+
+fn compile_and_copy_app() {
     let profile = std::env::var("PROFILE").unwrap();
     let app_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
