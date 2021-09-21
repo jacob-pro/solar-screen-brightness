@@ -1,15 +1,13 @@
-use crate::assets::Assets;
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use crate::tui::launch_cursive;
 use crate::APP_NAME;
 use solar_screen_brightness_windows::Windows::Win32::{
-    Foundation::{BOOL, HWND, LPARAM, LRESULT, WPARAM},
+    Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::WindowsAndMessaging::{
-        BringWindowToTop, CallWindowProcW, CreateIconFromResource, GetWindowLongPtrW, SendMessageW,
-        SetForegroundWindow, SetWindowLongPtrW, SetWindowTextW, ShowWindow, GWLP_USERDATA,
-        GWL_WNDPROC, ICON_BIG, ICON_SMALL, SC_CLOSE, SW_HIDE, SW_RESTORE, WM_CLOSE, WM_SETICON,
-        WM_SYSCOMMAND, WNDPROC,
+        BringWindowToTop, CallWindowProcW, GetWindowLongPtrW, SetForegroundWindow,
+        SetWindowLongPtrW, SetWindowTextW, ShowWindow, GWLP_USERDATA, GWL_WNDPROC, SC_CLOSE,
+        SW_HIDE, SW_RESTORE, WM_CLOSE, WM_SYSCOMMAND, WNDPROC,
     },
 };
 use solar_screen_brightness_windows::{set_and_get_error, WindowDataExtension};
@@ -67,36 +65,6 @@ impl Console {
                 .unwrap();
 
             set_and_get_error(|| SetWindowTextW(data.handle, APP_NAME)).unwrap();
-            let mut asset = Assets::get("icon-256.png")
-                .expect("Icon missing")
-                .into_owned();
-            let hicon = set_and_get_error(|| {
-                CreateIconFromResource(
-                    asset.as_mut_ptr(),
-                    asset.len() as u32,
-                    BOOL::from(true),
-                    0x00030000,
-                )
-            })
-            .unwrap();
-            set_and_get_error(|| {
-                SendMessageW(
-                    data.handle,
-                    WM_SETICON,
-                    WPARAM(ICON_BIG as usize),
-                    LPARAM(hicon.0),
-                )
-            })
-            .unwrap();
-            set_and_get_error(|| {
-                SendMessageW(
-                    data.handle,
-                    WM_SETICON,
-                    WPARAM(ICON_SMALL as usize),
-                    LPARAM(hicon.0),
-                )
-            })
-            .unwrap();
         }
         self.window_data = Some(data);
     }

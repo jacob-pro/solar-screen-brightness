@@ -1,9 +1,15 @@
 mod assets;
 mod install;
+mod tui;
 mod uninstall;
 
 use clap::{AppSettings, Clap};
 use env_logger::Env;
+
+#[cfg(not(windows))]
+pub use cursive;
+#[cfg(windows)]
+pub use solar_screen_brightness_windows::cursive;
 
 pub const APP_NAME: &'static str = "Solar Screen Brightness";
 
@@ -36,7 +42,7 @@ fn main() {
     std::process::exit((|| {
         env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
         if let Err(e) = match opts.sub_command.unwrap_or_default() {
-            SubCommand::Tui => install::install(),
+            SubCommand::Tui => tui::launch_cursive(),
             SubCommand::Install => install::install().and_then(|_| install::launch()),
             SubCommand::Uninstall => uninstall::uninstall(),
         } {

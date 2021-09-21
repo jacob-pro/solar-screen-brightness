@@ -1,16 +1,17 @@
-use crate::install::BINARY_PATH;
+use crate::install::{BINARY_NAME, BINARY_PATH};
 use crate::APP_NAME;
 use lazy_static::lazy_static;
-use solar_screen_brightness_windows::windows::Guid;
 use solar_screen_brightness_windows::windows::Interface;
 use solar_screen_brightness_windows::Windows::Win32::{
     System::Com::{
         CoCreateInstance, CoInitializeEx, IPersistFile, CLSCTX_INPROC_SERVER,
         COINIT_APARTMENTTHREADED,
     },
-    UI::Shell::IShellLinkW,
+    UI::Shell::{IShellLinkW, ShellLink},
 };
+use std::env::consts::EXE_EXTENSION;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 lazy_static! {
     static ref START_MENU: PathBuf =
@@ -23,14 +24,6 @@ lazy_static! {
         .join(STARTUP_SHOTCUT_NAME.as_str())
         .with_extension("lnk");
 }
-
-// https://github.com/retep998/winapi-rs/issues/986#issuecomment-818749293
-const CLSID_SHELLLINK: Guid = Guid::from_values(
-    0x00021401,
-    0x0000,
-    0x0000,
-    [0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46],
-);
 
 pub fn install() -> anyhow::Result<()> {
     log::info!(
@@ -68,7 +61,7 @@ fn create_shortcut(
     save_to: &Path,
 ) -> anyhow::Result<()> {
     unsafe {
-        let psl: IShellLinkW = CoCreateInstance(&CLSID_SHELLLINK, None, CLSCTX_INPROC_SERVER)?;
+        let psl: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER)?;
         psl.SetPath(to.to_str().unwrap())?;
         psl.SetDescription(description)?;
         match args {
@@ -82,4 +75,16 @@ fn create_shortcut(
         ppf.Save(save_to.to_str().unwrap(), true)?;
     }
     Ok(())
+}
+
+pub fn ensure_not_running() {
+    log::info!("Ensuring process not running");
+    Command::new("Taskkill")
+        .arg("/IM")
+        .arg(format!("{}.{}", BINARY_NAME, EXE_EXTENSION).as_str())
+        .arg("/f")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .ok();
 }

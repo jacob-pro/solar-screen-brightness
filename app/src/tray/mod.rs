@@ -1,4 +1,4 @@
-#[cfg(unix)]
+#[cfg(not(windows))]
 #[path = "qt.rs"]
 mod tray_impl;
 

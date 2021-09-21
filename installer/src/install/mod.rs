@@ -15,6 +15,8 @@ use std::env::consts::EXE_EXTENSION;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+pub const BINARY_NAME: &'static str = "solar-screen-brightness";
+
 lazy_static! {
     pub static ref CONFIG_DIR: PathBuf = {
         let p = BaseDirs::new().unwrap().config_dir().join(APP_NAME);
@@ -22,13 +24,13 @@ lazy_static! {
         std::fs::create_dir_all(&p).unwrap();
         p
     };
-    pub static ref BINARY_PATH: PathBuf = CONFIG_DIR
-        .join("solar-screen-brightness")
-        .with_extension(EXE_EXTENSION);
+    pub static ref BINARY_PATH: PathBuf =
+        CONFIG_DIR.join(BINARY_NAME).with_extension(EXE_EXTENSION);
 }
 
 pub fn install() -> anyhow::Result<()> {
     log::info!("Starting install");
+    install_platform::ensure_not_running();
     log::info!("Writing binary {}", BINARY_PATH.to_str().unwrap());
     let binary = BuildAssets::get("solar-screen-brightness").unwrap();
     std::fs::write(&*BINARY_PATH, &binary.data).context("Writing binary file")?;

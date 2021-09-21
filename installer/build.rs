@@ -9,6 +9,8 @@ fn main() {
         res.set_icon("../assets/icon-256.ico");
         res.compile().unwrap();
     }
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    bearlib(manifest_dir);
 }
 
 fn compile_and_copy_app() {
@@ -43,3 +45,20 @@ fn compile_and_copy_app() {
     std::fs::create_dir_all(&dest).expect(&format!("Failed to create {:?}", dest));
     std::fs::copy(exe, dest.join("solar-screen-brightness")).expect("Failed to copy binary");
 }
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn bearlib(path: PathBuf) {
+    let path = path.join("linux_x64");
+    println!("cargo:rustc-env=LD_LIBRARY_PATH={}", path.to_str().unwrap());
+    println!("cargo:rustc-flags=-L {}", path.to_str().unwrap());
+}
+
+#[cfg(target_os = "macos")]
+fn bearlib(path: PathBuf) {
+    let path = path.join("macos");
+    println!("cargo:rustc-env=LD_LIBRARY_PATH={}", path.to_str().unwrap());
+    println!("cargo:rustc-flags=-L {}", path.to_str().unwrap());
+}
+
+#[cfg(target_os = "windows")]
+fn bearlib(_path: PathBuf) {}

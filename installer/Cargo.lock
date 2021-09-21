@@ -52,6 +52,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "bear-lib-terminal"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "315549f695a3fef8ad1e1ebad093a7c38d135fab85e10067841744901f907116"
+dependencies = [
+ "bear-lib-terminal-sys",
+]
+
+[[package]]
+name = "bear-lib-terminal-sys"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a04c83b2c02f07128177fa98ea2d241f85d351d376dcee70694fcb6960a279f"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -166,12 +184,32 @@ dependencies = [
 [[package]]
 name = "cursive"
 version = "0.16.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6593c3409eb794bf22090bec60dda1e19d1def284478bec7e5a92da3cf977c52"
+dependencies = [
+ "ahash",
+ "bear-lib-terminal",
+ "cfg-if 1.0.0",
+ "crossbeam-channel",
+ "cursive_core 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static",
+ "libc",
+ "log",
+ "signal-hook",
+ "unicode-segmentation",
+ "unicode-width",
+ "wasmer_enumset",
+]
+
+[[package]]
+name = "cursive"
+version = "0.16.3"
 source = "git+https://github.com/gyscos/cursive?rev=73453b20976df68b58ec190b848f5d9790634662#73453b20976df68b58ec190b848f5d9790634662"
 dependencies = [
  "ahash",
  "cfg-if 1.0.0",
  "crossbeam-channel",
- "cursive_core",
+ "cursive_core 0.2.2 (git+https://github.com/gyscos/cursive?rev=73453b20976df68b58ec190b848f5d9790634662)",
  "lazy_static",
  "libc",
  "log",
@@ -182,6 +220,28 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width",
  "wasmer_enumset",
+]
+
+[[package]]
+name = "cursive_core"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "025ac0bcd21ced752d27b70e6aa2285a3513d07b5a0c7f89e71121d20ca1429d"
+dependencies = [
+ "ahash",
+ "chrono",
+ "crossbeam-channel",
+ "enum-map",
+ "lazy_static",
+ "libc",
+ "log",
+ "num",
+ "owning_ref",
+ "syn",
+ "unicode-segmentation",
+ "unicode-width",
+ "wasmer_enumset",
+ "xi-unicode",
 ]
 
 [[package]]
@@ -268,6 +328,26 @@ dependencies = [
  "libc",
  "redox_users",
  "winapi",
+]
+
+[[package]]
+name = "enum-iterator"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c79a6321a1197d7730510c7e3f6cb80432dfefecb32426de8cea0aa19b4bb8d7"
+dependencies = [
+ "enum-iterator-derive",
+]
+
+[[package]]
+name = "enum-iterator-derive"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e94aa31f7c0dc764f57896dc615ddd76fc13b0d5dca7eb6cc5e018a5a09ec06"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -705,7 +785,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "cursive 0.16.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "directories",
+ "enum-iterator",
  "env_logger",
  "lazy_static",
  "log",
@@ -718,7 +800,7 @@ dependencies = [
 name = "solar-screen-brightness-windows"
 version = "0.1.0"
 dependencies = [
- "cursive",
+ "cursive 0.16.3 (git+https://github.com/gyscos/cursive?rev=73453b20976df68b58ec190b848f5d9790634662)",
  "windows",
 ]
 

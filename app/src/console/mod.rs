@@ -1,4 +1,4 @@
-#[cfg(unix)]
+#[cfg(not(windows))]
 #[path = "bearlib.rs"]
 mod console_impl;
 

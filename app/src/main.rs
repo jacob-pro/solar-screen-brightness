@@ -12,7 +12,7 @@ mod lock;
 mod tray;
 mod tui;
 
-#[cfg(unix)]
+#[cfg(not(windows))]
 pub use cursive;
 #[cfg(windows)]
 pub use solar_screen_brightness_windows::cursive;
