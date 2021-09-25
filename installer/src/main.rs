@@ -1,4 +1,5 @@
 mod assets;
+mod common;
 mod install;
 mod tui;
 mod uninstall;
@@ -10,8 +11,6 @@ use env_logger::Env;
 pub use cursive;
 #[cfg(windows)]
 pub use solar_screen_brightness_windows::cursive;
-
-pub const APP_NAME: &'static str = "Solar Screen Brightness";
 
 #[derive(Clap)]
 enum SubCommand {

@@ -1,39 +1,27 @@
 #[cfg(windows)]
 #[path = "windows.rs"]
-pub mod install_platform;
+mod install_platform;
 
 #[cfg(target_os = "linux")]
 #[path = "linux.rs"]
-pub mod install_platform;
+mod install_platform;
 
 use crate::assets::BuildAssets;
-use crate::APP_NAME;
+use crate::common::{ensure_not_running, remove_file_if_exists, BINARY_PATH};
 use anyhow::Context;
-use directories::BaseDirs;
-use lazy_static::lazy_static;
-use std::env::consts::EXE_EXTENSION;
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
-
-pub const BINARY_NAME: &'static str = "solar-screen-brightness";
-
-lazy_static! {
-    pub static ref CONFIG_DIR: PathBuf = {
-        let p = BaseDirs::new().unwrap().config_dir().join(APP_NAME);
-        log::trace!("Ensuring {:?} folder exists", p);
-        std::fs::create_dir_all(&p).unwrap();
-        p
-    };
-    pub static ref BINARY_PATH: PathBuf =
-        CONFIG_DIR.join(BINARY_NAME).with_extension(EXE_EXTENSION);
-}
 
 pub fn install() -> anyhow::Result<()> {
     log::info!("Starting install");
-    install_platform::ensure_not_running();
+    ensure_not_running();
+    remove_file_if_exists(&*BINARY_PATH)?;
+
     log::info!("Writing binary {}", BINARY_PATH.to_str().unwrap());
+    std::fs::create_dir_all(BINARY_PATH.parent().unwrap())
+        .context("Ensuring config folder exists")?;
     let binary = BuildAssets::get("solar-screen-brightness").unwrap();
     std::fs::write(&*BINARY_PATH, &binary.data).context("Writing binary file")?;
+
     install_platform::install()?;
     log::info!("Completed install");
     Ok(())

@@ -1,10 +1,10 @@
+use crate::common::APP_NAME;
 use crate::cursive::align::HAlign;
 use crate::cursive::event::Event;
 use crate::cursive::views::{
     Dialog, DummyView, HideableView, LinearLayout, ScrollView, SelectView,
 };
 use crate::cursive::{Cursive, CursiveExt};
-use crate::APP_NAME;
 use enum_iterator::IntoEnumIterator;
 
 pub fn launch_cursive() -> anyhow::Result<()> {
