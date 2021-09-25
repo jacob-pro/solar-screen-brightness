@@ -37,6 +37,8 @@ jobs:
         run: sudo apt update && sudo apt install -y libncurses-dev qtbase5-dev
 
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - name: Cargo Test (App)
         run: cargo test
