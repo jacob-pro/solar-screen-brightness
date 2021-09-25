@@ -4,7 +4,7 @@ pub mod install_platform;
 
 #[cfg(target_os = "linux")]
 #[path = "linux.rs"]
-mod install_platform;
+pub mod install_platform;
 
 use crate::assets::BuildAssets;
 use crate::APP_NAME;

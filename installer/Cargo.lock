@@ -147,6 +147,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmake"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb6210b637171dfba4cda12e579ac6dc73f5165ad56133e5d72ef3131f320855"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "const-sha1"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -785,6 +794,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "cmake",
  "cursive 0.16.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "directories",
  "enum-iterator",

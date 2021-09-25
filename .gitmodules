@@ -1,0 +1,3 @@
+[submodule "bearlibterminal"]
+	path = bearlibterminal
+	url = https://github.com/cfyzium/bearlibterminal.git

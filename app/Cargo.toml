@@ -40,3 +40,6 @@ solar-screen-brightness-windows = { path = "../windows" }
 
 [build-dependencies]
 winres = "0.1"
+
+[target.'cfg(unix)'.build-dependencies]
+cmake = "0.1"
