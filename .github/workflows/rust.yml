@@ -26,7 +26,7 @@ jobs:
         run: echo "LIBCLANG_PATH=$((gcm clang).source -replace "clang.exe")" >> $env:GITHUB_ENV
 
       - if: ${{ matrix.os == 'ubuntu-latest' }}
-      - name: Install Rust Beta (we need 1.56+)
+        name: Install Rust Beta (we need 1.56+)
         uses: actions-rs/toolchain@v1
         with:
           toolchain: beta
