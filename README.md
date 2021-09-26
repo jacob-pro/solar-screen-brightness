@@ -32,10 +32,11 @@ try calling `solar_screen_brightness --help`)
 
 #### Installation
 
-*NOTE:** If you are on Linux please read the [Using External Monitors on Linux](docs/LINUX_MONITORS.md) guide.
+**NOTE:** If you are on Linux please read the [Linux Guide](docs/LINUX_GUIDE.md).
 
 #### Planned Features
 - [ ] Per monitor/device brightness settings.
+- [ ] Auto refresh on monitor connect. 
 - [ ] macOS Support.
 
 ## Screenshots
@@ -57,12 +58,12 @@ try calling `solar_screen_brightness --help`)
 
 ```
 sudo apt update
-sudo apt install -y cmake gcc libncurses-dev qtbase5-dev
+sudo apt install -y cmake gcc qtbase5-dev
 ```
 
 ### RHEL/CentOS/Oracle
 
 ```
-sudo yum install -y cmake gcc ncurses-devel qt5-qtbase-devel
+sudo yum install -y cmake gcc qt5-qtbase-devel
 sudo ln -s /usr/bin/qmake-qt5 /usr/bin/qmake
 ```

@@ -1,4 +1,4 @@
-# Using External Monitors on Linux
+# Linux Guide
 
 Internally `solar-screen-brightness` uses the [`brightness` crate](https://github.com/stephaneyfx/brightness).
 
@@ -38,6 +38,24 @@ cd ddcci-driver-linux
 sudo make unload
 modprobe ddcci-backlight dyndbg
 ```
+
+## Backlight Permissions
+
+If you have `systemd`
+[version 243 or later](https://github.com/systemd/systemd/blob/877aa0bdcc2900712b02dac90856f181b93c4e40/NEWS#L262), 
+then the `brightness` crate will attempt to set the device brightness
+using the `DBus` `SetBrightness()` call, which manages all the permissions for you.
+
+However, on older versions which don't have this function, then `brightness` must write directly to the backlight file,
+which will require you to set appropriate permissions. You can do this using `udev` rules, for example:
+
+`/etc/udev/rules.d/backlight.rules`
+```
+RUN+="/bin/bash -c '/bin/chgrp video /sys/class/backlight/*/brightness'"
+RUN+="/bin/bash -c '/bin/chmod g+w /sys/class/backlight/*/brightness'"
+```
+
+`usermod -a -G video $USER` (requires logging out to take effect)
 
 ## Known Issues
 
