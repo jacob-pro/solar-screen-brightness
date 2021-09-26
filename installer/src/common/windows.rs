@@ -14,7 +14,7 @@ lazy_static! {
     pub static ref STARTUP_SHORTCUT_NAME: String = format!("{} (Minimised)", APP_NAME);
     pub static ref STARTUP_SHORTCUT: PathBuf = START_MENU
         .join("Startup")
-        .join(STARTUP_SHOTCUT_NAME.as_str())
+        .join(STARTUP_SHORTCUT_NAME.as_str())
         .with_extension("lnk");
 }
 

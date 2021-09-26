@@ -4,7 +4,9 @@ What the installer does:
 
 ## On Windows:
 
-1. 
+1. Installs the program to `%APPDATA%\Solar Screen Brightness\`
+2. Creates a start menu shortcut in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\`
+3. Creates a startup shortcut in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`
 
 ## On Linux:
 
