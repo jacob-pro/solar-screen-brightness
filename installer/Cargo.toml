@@ -1,0 +1,27 @@
+[package]
+name = "solar-screen-brightness-installer"
+version = "0.1.0"
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+anyhow = "1.0.43"
+clap = "3.0.0-beta.4"
+directories = "2.0"
+enum-iterator = "0.6.0"
+env_logger = "0.9.0"
+lazy_static = "1.4.0"
+log = "0.4.14"
+rust-embed = { version = "6.2.0", features = ["debug-embed"] }
+
+[target.'cfg(unix)'.dependencies]
+cursive = { default-features = false, features = ["blt-backend"], version = "0.16" }
+
+[target.'cfg(windows)'.dependencies]
+solar-screen-brightness-windows = { path = "../windows" }
+
+[build-dependencies]
+winres = "0.1"
+
+[target.'cfg(unix)'.build-dependencies]
+cmake = "0.1"
