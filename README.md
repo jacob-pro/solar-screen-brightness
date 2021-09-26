@@ -30,6 +30,10 @@ whereas those utilities vary the colour tone of the display.
 (Note there are some more advanced options available via the CLI interface, 
 try calling `solar_screen_brightness --help`)
 
+#### Installation
+
+*NOTE:** If you are on Linux please read the [Using External Monitors on Linux](docs/LINUX_MONITORS.md) guide.
+
 #### Planned Features
 - [ ] Per monitor/device brightness settings.
 - [ ] macOS Support.
@@ -42,22 +46,23 @@ try calling `solar_screen_brightness --help`)
 
 ![](./screenshots/edit_config.png)
 
-
 ## Development Setup
 
-Note: CMake and Clang will also required to build the 
-[sunrise-sunset-calculator](https://github.com/jacob-pro/sunrise-sunset-calculator/tree/master/rust-bindings) crate.
+### Windows
+
+- Download and install [CMake](https://cmake.org/download/)
+- Download and install Visual Studio with the C++ Build Tools.  
 
 ### Ubuntu
 
 ```
 sudo apt update
-sudo apt install -y libncurses-dev qtbase5-dev
+sudo apt install -y cmake gcc libncurses-dev qtbase5-dev
 ```
 
 ### RHEL/CentOS/Oracle
 
 ```
-sudo yum install -y ncurses-devel qt5-qtbase-devel
+sudo yum install -y cmake gcc ncurses-devel qt5-qtbase-devel
 sudo ln -s /usr/bin/qmake-qt5 /usr/bin/qmake
 ```
