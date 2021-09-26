@@ -16,7 +16,7 @@ pub fn install() -> anyhow::Result<()> {
     ensure_not_running();
     remove_file_if_exists(&*BINARY_PATH)?;
 
-    log::info!("Writing binary {}", BINARY_PATH.to_str().unwrap());
+    log::info!("Writing binary {}", BINARY_PATH.display());
     std::fs::create_dir_all(BINARY_PATH.parent().unwrap())
         .context("Ensuring config folder exists")?;
     let binary = BuildAssets::get("solar-screen-brightness").unwrap();

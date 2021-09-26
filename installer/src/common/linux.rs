@@ -1,4 +1,4 @@
-use crate::common::BINARY_NAME;
+use crate::common::{BINARY_NAME, CONFIG_DIR};
 use directories::BaseDirs;
 use lazy_static::lazy_static;
 use std::path::PathBuf;
@@ -17,6 +17,7 @@ lazy_static! {
         .join(".config/autostart")
         .join(BINARY_NAME)
         .with_extension("desktop");
+    pub static ref ICON_PATH: PathBuf = CONFIG_DIR.join("icon.png");
 }
 
 pub fn refresh_desktop() -> anyhow::Result<()> {

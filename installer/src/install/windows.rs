@@ -1,5 +1,5 @@
 use crate::common::{
-    APP_NAME, BINARY_PATH, STARTUP_SHORTCUT, STARTUP_SHOTCUT_NAME, START_MENU_SHORTCUT,
+    APP_NAME, BINARY_PATH, STARTUP_SHORTCUT, STARTUP_SHORTCUT_NAME, START_MENU_SHORTCUT,
 };
 use solar_screen_brightness_windows::windows::Interface;
 use solar_screen_brightness_windows::Windows::Win32::{
@@ -24,7 +24,7 @@ pub fn install() -> anyhow::Result<()> {
     create_shortcut(
         BINARY_PATH.as_path(),
         Some("launch --hide-console"),
-        &STARTUP_SHOTCUT_NAME,
+        &STARTUP_SHORTCUT_NAME,
         STARTUP_SHORTCUT.as_path(),
     )?;
 

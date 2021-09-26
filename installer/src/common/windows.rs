@@ -1,4 +1,4 @@
-use crate::common::BINARY_NAME;
+use crate::common::{APP_NAME, BINARY_NAME};
 use directories::BaseDirs;
 use lazy_static::lazy_static;
 use std::env::consts::EXE_EXTENSION;
@@ -11,7 +11,7 @@ lazy_static! {
         .config_dir()
         .join(r#"Microsoft\Windows\Start Menu\Programs"#);
     pub static ref START_MENU_SHORTCUT: PathBuf = START_MENU.join(APP_NAME).with_extension("lnk");
-    static ref STARTUP_SHOTCUT_NAME: String = format!("{} (Minimised)", APP_NAME);
+    pub static ref STARTUP_SHORTCUT_NAME: String = format!("{} (Minimised)", APP_NAME);
     pub static ref STARTUP_SHORTCUT: PathBuf = START_MENU
         .join("Startup")
         .join(STARTUP_SHOTCUT_NAME.as_str())
