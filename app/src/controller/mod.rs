@@ -94,6 +94,7 @@ impl BrightnessController {
                     };
                 }
             });
+            watch_ddcci_add(Arc::downgrade(&self.0));
         } else {
             log::warn!("BrightnessController is already running, ignoring");
         }
@@ -235,3 +236,43 @@ impl Drop for BrightnessControllerInner {
         self.stop();
     }
 }
+
+#[cfg(target_os = "linux")]
+fn watch_ddcci_add(weak: Weak<RwLock<BrightnessControllerInner>>) {
+    use nix::poll::{poll, PollFd, PollFlags};
+    use std::ffi::CString;
+    use std::os::unix::prelude::AsRawFd;
+    use udev::ffi::{udev_device_get_action, udev_monitor_receive_device};
+    use udev::{AsRaw, MonitorBuilder};
+    std::thread::spawn(move || {
+        if let Err(e) = (|| -> anyhow::Result<()> {
+            let listener = MonitorBuilder::new()?.match_subsystem("ddcci")?.listen()?;
+            log::info!("Watching for monitor connections");
+            loop {
+                let pfd = PollFd::new(listener.as_raw_fd(), PollFlags::POLLIN);
+                poll(&mut [pfd], -1)?;
+                let action = unsafe {
+                    let dev = udev_monitor_receive_device(listener.as_raw());
+                    let raw = udev_device_get_action(dev);
+                    let cs = CString::from_raw(raw as *mut _);
+                    cs.to_str()?.to_owned()
+                };
+                match weak.upgrade() {
+                    None => break,
+                    Some(controller) => {
+                        if action == "add" {
+                            log::error!("Notified of ddcci add event, triggering refresh");
+                            // TODO:
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })() {
+            log::error!("Error occurred watching for monitor connections {:#}", e);
+        }
+    });
+}
+
+#[cfg(not(target_os = "linux"))]
+fn watch_ddcci_add(_: Weak<RwLock<BrightnessControllerInner>>) {}
