@@ -1,244 +1,146 @@
 pub mod apply;
+mod worker;
 
 use crate::config::Config;
-use crate::controller::apply::{apply, ApplyResult};
-use chrono::prelude::*;
-use std::sync::mpsc::{sync_channel, RecvTimeoutError, SyncSender};
+use crate::controller::apply::ApplyResult;
+use crate::controller::worker::Worker;
+use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, RwLock, Weak};
-use std::time::Duration;
 
-pub trait Observer {
-    fn did_set_enabled(&self, running: bool);
-    fn did_set_last_result(&self, last_result: &ApplyResult);
-    fn did_set_config(&self, config: &Config);
+pub type DelegateImpl = Weak<dyn Delegate + Send + Sync>;
+
+pub trait Delegate {
+    fn did_set_enabled(&self, _enabled: bool) {}
+    fn did_set_last_result(&self, _last_result: &ApplyResult) {}
+    fn did_set_config(&self, _config: &Config) {}
 }
 
-enum Notification {
-    Refresh,
-    Terminate,
+pub struct BrightnessController {
+    config: RwLock<Config>,
+    enabled: RwLock<bool>,
+    last_result: Arc<RwLock<ApplyResult>>,
+    worker: Arc<RwLock<Option<SyncSender<worker::Message>>>>,
+    delegate: Arc<RwLock<DelegateImpl>>,
 }
 
-#[derive(Clone)]
-pub struct BrightnessController(Arc<RwLock<BrightnessControllerInner>>);
-
-// The inner data is shared across threads
-struct BrightnessControllerInner {
-    last_result: ApplyResult,
-    enabled: bool,
-    config: Config,
-    observers: Vec<Weak<dyn Observer + Send + Sync>>,
-    tx: Option<SyncSender<Notification>>,
-}
+// https://users.rust-lang.org/t/why-cant-weak-new-be-used-with-a-trait-object/29976/14
+struct DummyDelegate;
+impl Delegate for DummyDelegate {}
 
 impl BrightnessController {
     pub fn new(config: Config) -> Self {
-        Self(Arc::new(RwLock::new(BrightnessControllerInner {
-            last_result: ApplyResult::None,
-            enabled: true,
-            config,
-            observers: vec![],
-            tx: None,
-        })))
+        let delegate: Weak<DummyDelegate> = Weak::new();
+        Self {
+            config: RwLock::new(config),
+            enabled: RwLock::new(true),
+            last_result: Arc::new(RwLock::new(ApplyResult::None)),
+            worker: Arc::new(RwLock::new(None)),
+            delegate: Arc::new(RwLock::new(delegate as DelegateImpl)),
+        }
     }
 
-    pub fn start(&mut self) {
-        let mut write = self.0.write().unwrap();
-        if write.tx.is_none() {
+    pub fn start(&self) {
+        let mut worker = self.worker.write().unwrap();
+        if worker.is_none() {
             log::info!("Starting BrightnessController");
-            let (tx, rx) = sync_channel::<Notification>(0);
-            write.tx = Some(tx);
-            let weak = Arc::downgrade(&self.0);
-            std::thread::spawn(move || {
-                loop {
-                    let wait = weak.upgrade().and_then(|this| {
-                        let (config, enabled) = this
-                            .read()
-                            .map(|this| (this.config.clone(), this.enabled))
-                            .unwrap();
-                        let (res, next_run) = apply(config, enabled);
-                        this.write().unwrap().set_last_result(res);
+            let config = self.config.read().unwrap().clone();
+            let enabled = *self.enabled.read().unwrap();
+            let delegate = Arc::clone(&self.delegate);
+            let last_result = Arc::clone(&self.last_result);
 
-                        next_run.map(|next_run| {
-                            // Wait for the next run, or a notification
-                            let unix_time_now = Utc::now().timestamp();
-                            if next_run > unix_time_now {
-                                next_run - unix_time_now
-                            } else {
-                                0
-                            }
-                        })
-                    });
-                    let rx_wait = match wait {
-                        None => {
-                            log::info!("BrightnessController sleeping indefinitely");
-                            rx.recv().map_err(|e| e.into())
-                        }
-                        Some(wait) => {
-                            log::info!("BrightnessController sleeping for {}s", wait);
-                            rx.recv_timeout(Duration::from_secs(wait as u64))
-                        }
-                    };
-                    match rx_wait {
-                        Ok(msg) => match msg {
-                            Notification::Refresh => {}
-                            Notification::Terminate => {
-                                log::info!("BrightnessController thread stopping");
-                                break;
-                            }
-                        },
-                        Err(e) => {
-                            if e != RecvTimeoutError::Timeout {
-                                panic!("{}", e)
-                            }
-                        }
-                    };
-                }
+            let sender = Worker::start(config, enabled, move |res| {
+                let mut last_result_rw = last_result.write().unwrap();
+                let delegate_r = delegate.read().unwrap();
+                *last_result_rw = res;
+                delegate_r
+                    .upgrade()
+                    .map(|d| d.did_set_last_result(&*last_result_rw));
             });
-            watch_ddcci_add(Arc::downgrade(&self.0));
+            *worker = Some(sender);
+
+            // watch_ddcci_add(Arc::downgrade(&self.0));
         } else {
             log::warn!("BrightnessController is already running, ignoring");
         }
     }
 
-    #[allow(unused)]
     pub fn stop(&self) {
-        self.0.write().unwrap().stop();
-    }
-
-    #[allow(unused)]
-    pub fn is_running(&self) -> bool {
-        self.0.read().unwrap().tx.is_some()
-    }
-
-    pub fn get_enabled(&self) -> bool {
-        self.0.read().unwrap().enabled
-    }
-
-    pub fn get_config(&self) -> Config {
-        self.0.read().unwrap().config.clone()
-    }
-
-    pub fn get_last_result(&self) -> ApplyResult {
-        self.0.read().unwrap().last_result.clone()
-    }
-
-    pub fn register(&self, o: Weak<dyn Observer + Send + Sync>) {
-        self.0.write().unwrap().register(o);
-    }
-
-    #[allow(unused)]
-    pub fn unregister(&self, o: Weak<dyn Observer + Send + Sync>) {
-        self.0.write().unwrap().unregister(o);
-    }
-
-    /// Enable or disable solar screen brightness, returns the previous value
-    pub fn set_enabled(&mut self, enabled: bool) -> bool {
-        self.0.write().unwrap().set_enabled(enabled)
-    }
-
-    /// Update the solar screen brightness config, returns the previous config
-    pub fn set_config(&mut self, config: Config) -> Config {
-        self.0.write().unwrap().set_config(config)
-    }
-}
-
-impl BrightnessControllerInner {
-    fn stop(&mut self) {
-        let tx = std::mem::take(&mut self.tx);
-        match tx {
-            None => {
-                log::info!("BrightnessController is not running, ignoring");
-            }
+        let mut worker = self.worker.write().unwrap();
+        let worker = std::mem::take(&mut *worker);
+        match worker {
+            None => {}
             Some(tx) => {
-                log::info!("Stopping BrightnessController");
-                tx.send(Notification::Terminate).unwrap();
+                log::info!("Stopping Brightness Worker");
+                tx.send(worker::Message::Terminate).unwrap();
             }
         }
     }
 
-    fn register(&mut self, o: Weak<dyn Observer + Send + Sync>) {
-        log::trace!("Registering observer");
-        self.clean_observers();
-        self.observers.push(o);
+    #[allow(unused)]
+    pub fn is_running(&self) -> bool {
+        self.worker.read().unwrap().is_some()
     }
 
-    fn unregister(&mut self, o: Weak<dyn Observer + Send + Sync>) {
-        log::trace!("Unregistering observer");
-        let observers = std::mem::take(&mut self.observers);
-        self.observers = observers
-            .into_iter()
-            .filter(|o2| !o2.ptr_eq(&o) && o2.upgrade().is_some())
-            .collect()
+    pub fn get_enabled(&self) -> bool {
+        *self.enabled.read().unwrap()
     }
 
-    fn set_enabled(&mut self, enabled: bool) -> bool {
+    pub fn get_config(&self) -> Config {
+        self.config.read().unwrap().clone()
+    }
+
+    pub fn get_last_result(&self) -> ApplyResult {
+        self.last_result.read().unwrap().clone()
+    }
+
+    pub fn set_delegate(&self, delegate: DelegateImpl) {
+        *self.delegate.write().unwrap() = delegate;
+    }
+
+    /// Enable or disable solar screen brightness, returns the previous value
+    pub fn set_enabled(&self, enabled: bool) -> bool {
+        let mut enabled_rw = self.enabled.write().unwrap();
+        let worker_r = self.worker.read().unwrap();
+        let delegate_r = self.delegate.read().unwrap();
+
         if enabled {
             log::info!("Enabling dynamic brightness");
         } else {
             log::info!("Disabling dynamic brightness");
         }
-        let before = self.enabled;
-        self.enabled = enabled;
-        self.tx
+        let before = std::mem::replace(&mut *enabled_rw, enabled);
+        worker_r
             .as_ref()
-            .map(|tx| tx.send(Notification::Refresh).unwrap());
-        self.clean_observers();
-        self.notify_observers(|o| o.did_set_enabled(enabled));
+            .map(|w| w.send(worker::Message::UpdateEnabled(enabled)).unwrap());
+        delegate_r.upgrade().map(|d| d.did_set_enabled(enabled));
         before
     }
 
-    fn set_config(&mut self, config: Config) -> Config {
+    /// Update the solar screen brightness config, returns the previous config
+    pub fn set_config(&self, config: Config) -> Config {
         log::info!("Applying new config");
-        let before = std::mem::replace(&mut self.config, config);
-        self.tx
-            .as_ref()
-            .map(|tx| tx.send(Notification::Refresh).unwrap());
-        self.clean_observers();
-        self.notify_observers(|o| o.did_set_config(&self.config));
+        let mut config_rw = self.config.write().unwrap();
+        let worker_r = self.worker.read().unwrap();
+        let delegate_r = self.delegate.read().unwrap();
+
+        let before = std::mem::replace(&mut *config_rw, config);
+        worker_r.as_ref().map(|w| {
+            w.send(worker::Message::UpdateConfig(config_rw.clone()))
+                .unwrap()
+        });
+        delegate_r.upgrade().map(|d| d.did_set_config(&*config_rw));
         before
-    }
-
-    fn set_last_result(&mut self, last_result: ApplyResult) {
-        self.last_result = last_result;
-        self.clean_observers();
-        self.notify_observers(|o| o.did_set_last_result(&self.last_result));
-    }
-
-    fn clean_observers(&mut self) {
-        let observers = std::mem::take(&mut self.observers);
-        self.observers = observers
-            .into_iter()
-            .filter(|p| {
-                let is_some = p.upgrade().is_some();
-                if !is_some {
-                    log::trace!("Dropping null observer");
-                }
-                is_some
-            })
-            .collect();
-    }
-
-    fn notify_observers<F>(&self, f: F)
-    where
-        F: Fn(Arc<dyn Observer + Send + Sync>),
-    {
-        self.observers.iter().for_each(|p| match p.upgrade() {
-            None => {}
-            Some(p) => {
-                f(p);
-            }
-        })
     }
 }
 
-impl Drop for BrightnessControllerInner {
+impl Drop for BrightnessController {
     fn drop(&mut self) {
         self.stop();
     }
 }
 
 #[cfg(target_os = "linux")]
-fn watch_ddcci_add(weak: Weak<RwLock<BrightnessControllerInner>>) {
+fn watch_ddcci_add(weak: Weak<RwLock<State>>) {
     use nix::poll::{poll, PollFd, PollFlags};
     use std::ffi::CString;
     use std::os::unix::prelude::AsRawFd;
@@ -274,5 +176,5 @@ fn watch_ddcci_add(weak: Weak<RwLock<BrightnessControllerInner>>) {
     });
 }
 
-#[cfg(not(target_os = "linux"))]
-fn watch_ddcci_add(_: Weak<RwLock<BrightnessControllerInner>>) {}
+// #[cfg(not(target_os = "linux"))]
+// fn watch_ddcci_add(_: Weak<RwLock<State>>) {}

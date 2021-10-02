@@ -32,7 +32,7 @@ pub enum ApplyResult {
     None,
 }
 
-pub fn apply(config: Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
+pub fn apply(config: &Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
     // Calculate sunrise and brightness
     match &config.location {
         None => {

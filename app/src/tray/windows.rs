@@ -23,6 +23,7 @@ use solar_screen_brightness_windows::Windows::Win32::{
 };
 use solar_screen_brightness_windows::{loword, set_and_get_error, WideString, WindowDataExtension};
 use std::panic::PanicInfo;
+use std::sync::Arc;
 
 const SHOW_CONSOLE_MSG: &str = "solar-screen-brightness.show_console";
 const CALLBACK_MSG: u32 = WM_APP + 1;
@@ -31,12 +32,12 @@ const EXIT_APPLICATION_MSG: u32 = WM_APP + 3;
 
 struct WindowData {
     console: Console,
-    controller: BrightnessController,
+    controller: Arc<BrightnessController>,
     prev_running: bool,
     show_console_msg_code: u32,
 }
 
-pub fn run(controller: BrightnessController, _lock: ApplicationLock, launch_console: bool) {
+pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch_console: bool) {
     std::panic::set_hook(Box::new(handle_panic));
     unsafe {
         // Create Window Class
