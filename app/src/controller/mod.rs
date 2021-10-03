@@ -71,7 +71,7 @@ impl BrightnessController {
     }
 
     #[cfg(not(target_os = "linux"))]
-    fn start_platform(&self, sender: SyncSender<worker::Message>) {}
+    fn start_platform(&self, _: SyncSender<worker::Message>) {}
 
     #[cfg(target_os = "linux")]
     fn start_platform(&self, sender: SyncSender<worker::Message>) {

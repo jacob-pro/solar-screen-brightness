@@ -21,14 +21,13 @@ fn monitor_connections(read: RawFd, worker: SyncSender<worker::Message>) {
             let socket_fd = PollFd::new(socket.as_raw_fd(), PollFlags::POLLIN);
             let stop = PollFd::new(read, PollFlags::POLLIN);
             let mut pfds = vec![socket_fd, stop];
+            log::trace!("Beginning udev monitor connections poll...");
             poll(pfds.as_mut_slice(), -1)?;
             if let Some(e) = pfds[1].revents() {
                 if e.contains(PollFlags::POLLIN) {
                     log::info!("DDC/CI Udev Monitor stopping");
                     close(read).ok();
                     break;
-                } else {
-                    anyhow::bail!("Unexpected revents for stop fd");
                 }
             }
             if let Some(e) = pfds[0].revents() {
@@ -43,8 +42,6 @@ fn monitor_connections(read: RawFd, worker: SyncSender<worker::Message>) {
                         log::info!("Notified of ddcci add event, triggering refresh");
                         worker.send(worker::Message::ForceRefresh).ok();
                     }
-                } else {
-                    anyhow::bail!("Unexpected revents for monitor fd");
                 }
             }
         }
