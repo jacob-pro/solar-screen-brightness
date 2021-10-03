@@ -23,7 +23,7 @@ pub struct BrightnessController {
     last_result: Arc<RwLock<ApplyResult>>,
     worker: Arc<RwLock<Option<SyncSender<worker::Message>>>>,
     #[cfg(target_os = "linux")]
-    monitor: RwLock<Option<Monitor>>,
+    monitor: RwLock<Option<monitor::Monitor>>,
     delegate: Arc<RwLock<DelegateImpl>>,
 }
 
@@ -64,7 +64,7 @@ impl BrightnessController {
             });
             *worker = Some(sender.clone());
 
-            self.start_platform();
+            self.start_platform(sender);
         } else {
             log::warn!("BrightnessController is already running, ignoring");
         }
@@ -74,7 +74,7 @@ impl BrightnessController {
     fn start_platform(&self) {}
 
     #[cfg(target_os = "linux")]
-    fn start_platform(&self) {
+    fn start_platform(&self, sender: SyncSender<worker::Message>) {
         *self.monitor.write().unwrap() = Some(monitor::Monitor::start(sender));
     }
 

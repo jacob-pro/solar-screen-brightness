@@ -1,57 +1,81 @@
 use crate::controller::worker;
+use nix::poll::{poll, PollFd, PollFlags};
+use nix::unistd::{close, pipe, write};
+use std::ffi::CString;
+use std::os::unix::prelude::{AsRawFd, RawFd};
 use std::sync::mpsc::SyncSender;
-
-#[cfg(target_os = "linux")]
-fn watch_ddcci_add(weak: Weak<RwLock<State>>) {
-    use nix::poll::{poll, PollFd, PollFlags};
-    use std::ffi::CString;
-    use std::os::unix::prelude::AsRawFd;
-    use udev::ffi::{udev_device_get_action, udev_monitor_receive_device};
-    use udev::{AsRaw, MonitorBuilder};
-    std::thread::spawn(move || {
-        if let Err(e) = (|| -> anyhow::Result<()> {
-            let listener = MonitorBuilder::new()?.match_subsystem("ddcci")?.listen()?;
-            log::info!("Watching for monitor connections");
-            loop {
-                let pfd = PollFd::new(listener.as_raw_fd(), PollFlags::POLLIN);
-                poll(&mut [pfd], -1)?;
-                let action = unsafe {
-                    let dev = udev_monitor_receive_device(listener.as_raw());
-                    let raw = udev_device_get_action(dev);
-                    let cs = CString::from_raw(raw as *mut _);
-                    cs.to_str()?.to_owned()
-                };
-                match weak.upgrade() {
-                    None => break,
-                    Some(controller) => {
-                        if action == "add" {
-                            log::error!("Notified of ddcci add event, triggering refresh");
-                            // TODO:
-                        }
-                    }
-                }
-            }
-            Ok(())
-        })() {
-            log::error!("Error occurred watching for monitor connections {:#}", e);
-        }
-    });
-}
+use udev::ffi::{udev_device_get_action, udev_monitor_receive_device};
+use udev::{AsRaw, MonitorBuilder};
 
 // Linux Only:
-// Monitors for DDC/CI Connections
-pub struct Monitor {}
+// Monitors for new DDC/CI Connections
+pub struct Monitor {
+    fd: Option<RawFd>,
+}
+
+#[allow(unused_mut)]
+fn monitor_connections(read: RawFd, worker: SyncSender<worker::Message>) {
+    if let Err(e) = (|| -> anyhow::Result<()> {
+        let socket = MonitorBuilder::new()?.match_subsystem("ddcci")?.listen()?;
+        log::info!("Monitoring for DDC/CI connections");
+        loop {
+            let socket_fd = PollFd::new(socket.as_raw_fd(), PollFlags::POLLIN);
+            let stop = PollFd::new(read, PollFlags::POLLIN);
+            let mut pfds = vec![socket_fd, stop];
+            poll(pfds.as_mut_slice(), -1)?;
+            if let Some(e) = pfds[1].revents() {
+                if e.contains(PollFlags::POLLIN) {
+                    log::info!("DDC/CI Udev Monitor stopping");
+                    close(read).ok();
+                    break;
+                } else {
+                    anyhow::bail!("Unexpected revents for stop fd");
+                }
+            }
+            if let Some(e) = pfds[0].revents() {
+                if e.contains(PollFlags::POLLIN) {
+                    let action = unsafe {
+                        let dev = udev_monitor_receive_device(socket.as_raw());
+                        let raw = udev_device_get_action(dev);
+                        let cs = CString::from_raw(raw as *mut _);
+                        cs.to_str()?.to_owned()
+                    };
+                    if action == "add" {
+                        log::info!("Notified of ddcci add event, triggering refresh");
+                        worker.send(worker::Message::ForceRefresh).ok();
+                    }
+                } else {
+                    anyhow::bail!("Unexpected revents for monitor fd");
+                }
+            }
+        }
+        Ok(())
+    })() {
+        log::info!("Failed monitoring for DDC/CI connections: {:#}", e);
+    }
+}
 
 impl Monitor {
     pub fn start(worker: SyncSender<worker::Message>) -> Self {
-        std::thread::spawn(move || loop {
-            worker.send(worker::Message::ForceRefresh).unwrap();
-            std::thread::sleep(std::time::Duration::from_secs(10));
-        });
-        Self {}
+        let fd = match pipe() {
+            Err(e) => {
+                log::info!("Failed setting up monitor pipe: {:#}", e);
+                None
+            }
+            Ok((read, write)) => {
+                std::thread::spawn(move || monitor_connections(read, worker));
+                Some(write)
+            }
+        };
+        Self { fd }
     }
 
-    fn stop(&self) {}
+    pub fn stop(&self) {
+        self.fd.as_ref().map(|fd| {
+            write(*fd, &[0]).ok();
+            close(*fd).ok();
+        });
+    }
 }
 
 impl Drop for Monitor {
