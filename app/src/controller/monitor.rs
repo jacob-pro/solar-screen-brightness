@@ -13,7 +13,6 @@ pub struct Monitor {
     fd: Option<RawFd>,
 }
 
-#[allow(unused_mut)]
 fn monitor_connections(read: RawFd, worker: SyncSender<worker::Message>) {
     if let Err(e) = (|| -> anyhow::Result<()> {
         let socket = MonitorBuilder::new()?.match_subsystem("ddcci")?.listen()?;
