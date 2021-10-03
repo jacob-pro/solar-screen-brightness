@@ -58,12 +58,12 @@ try calling `solar_screen_brightness --help`)
 
 ```
 sudo apt update
-sudo apt install -y cmake gcc qtbase5-dev
+sudo apt install -y cmake gcc qtbase5-dev libudev-dev
 ```
 
 ### RHEL/CentOS/Oracle
 
 ```
-sudo yum install -y cmake gcc qt5-qtbase-devel
+sudo yum install -y cmake gcc qt5-qtbase-devel libudev-devel
 sudo ln -s /usr/bin/qmake-qt5 /usr/bin/qmake
 ```

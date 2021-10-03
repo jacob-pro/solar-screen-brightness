@@ -9,6 +9,7 @@ mod tray_impl;
 use crate::controller::BrightnessController;
 use crate::cursive::Cursive;
 use crate::lock::ApplicationLock;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct TrayApplicationHandle(tray_impl::Handle);
@@ -29,7 +30,7 @@ impl TrayApplicationHandle {
 
 /// Blocking call, runs on this thread
 pub fn run_tray_application(
-    controller: BrightnessController,
+    controller: Arc<BrightnessController>,
     lock: ApplicationLock,
     launch_console: bool,
 ) {

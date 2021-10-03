@@ -11,6 +11,7 @@ use qt_widgets::{QAction, QApplication, QMenu, QSystemTrayIcon};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
+use std::sync::Arc;
 
 #[allow(unused)]
 struct TrayApplication {
@@ -30,7 +31,7 @@ impl StaticUpcast<QObject> for TrayApplication {
 
 impl TrayApplication {
     unsafe fn new(
-        controller: BrightnessController,
+        controller: Arc<BrightnessController>,
         lock: ApplicationLock,
         launch_console: bool,
     ) -> Rc<Self> {
@@ -107,7 +108,7 @@ impl TrayApplication {
     }
 }
 
-pub fn run(controller: BrightnessController, lock: ApplicationLock, launch_console: bool) {
+pub fn run(controller: Arc<BrightnessController>, lock: ApplicationLock, launch_console: bool) {
     QApplication::init(|_| unsafe {
         assert!(QSystemTrayIcon::is_system_tray_available());
         let _tray = TrayApplication::new(controller, lock, launch_console);

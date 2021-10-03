@@ -24,6 +24,7 @@ use crate::lock::ApplicationLock;
 use clap::{AppSettings, Clap};
 use env_logger::Env;
 use futures::executor::block_on;
+use std::sync::Arc;
 
 pub const APP_NAME: &'static str = "Solar Screen Brightness";
 
@@ -89,7 +90,7 @@ fn launch(args: LaunchArgs) -> i32 {
     match ApplicationLock::acquire() {
         Some(lock) => {
             let config = Config::load().ok().unwrap_or_default();
-            let mut controller = BrightnessController::new(config);
+            let controller = Arc::new(BrightnessController::new(config));
             controller.start();
             tray::run_tray_application(controller, lock, !args.hide_console);
             log::info!("Program exiting gracefully");
@@ -120,12 +121,12 @@ fn headless(args: HeadlessArgs) -> i32 {
         }
     };
     if args.once {
-        let (_res, wait) = controller::apply::apply(config, true);
+        let (_res, wait) = controller::apply::apply(&config, true);
         wait.map(|wait| log::info!("Brightness valid until: {}", wait));
     } else {
         match ApplicationLock::acquire() {
             Some(_lock) => {
-                let mut controller = BrightnessController::new(config);
+                let controller = BrightnessController::new(config);
                 controller.start();
                 loop {
                     std::thread::park();

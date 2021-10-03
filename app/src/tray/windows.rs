@@ -17,12 +17,14 @@ use solar_screen_brightness_windows::Windows::Win32::{
         CreateIconFromResource, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW,
         MessageBoxW, PostMessageW, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
         SendMessageW, SetWindowLongPtrW, TranslateMessage, CW_USEDEFAULT, GWLP_USERDATA, HMENU,
-        MB_ICONSTOP, MB_OK, MSG, WINDOW_EX_STYLE, WM_APP, WM_LBUTTONUP, WM_RBUTTONUP,
-        WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
+        MB_ICONSTOP, MB_OK, MSG, WINDOW_EX_STYLE, WM_APP, WM_DISPLAYCHANGE, WM_LBUTTONUP,
+        WM_RBUTTONUP, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK,
+        WTS_SESSION_UNLOCK,
     },
 };
 use solar_screen_brightness_windows::{loword, set_and_get_error, WideString, WindowDataExtension};
 use std::panic::PanicInfo;
+use std::sync::Arc;
 
 const SHOW_CONSOLE_MSG: &str = "solar-screen-brightness.show_console";
 const CALLBACK_MSG: u32 = WM_APP + 1;
@@ -31,12 +33,12 @@ const EXIT_APPLICATION_MSG: u32 = WM_APP + 3;
 
 struct WindowData {
     console: Console,
-    controller: BrightnessController,
+    controller: Arc<BrightnessController>,
     prev_running: bool,
     show_console_msg_code: u32,
 }
 
-pub fn run(controller: BrightnessController, _lock: ApplicationLock, launch_console: bool) {
+pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch_console: bool) {
     std::panic::set_hook(Box::new(handle_panic));
     unsafe {
         // Create Window Class
@@ -69,7 +71,7 @@ pub fn run(controller: BrightnessController, _lock: ApplicationLock, launch_cons
 
         // Register Window data
         let mut window_data = Box::new(WindowData {
-            console: Console::new(TrayApplicationHandle(Handle(hwnd)), controller.clone()),
+            console: Console::new(TrayApplicationHandle(Handle(hwnd)), Arc::clone(&controller)),
             controller,
             prev_running: false,
             show_console_msg_code: RegisterWindowMessageW(SHOW_CONSOLE_MSG),
@@ -170,6 +172,10 @@ unsafe extern "system" fn tray_window_proc(
                 }
                 _ => {}
             },
+            WM_DISPLAYCHANGE => {
+                log::info!("Displays changed, doing refresh");
+                app.controller.force_refresh();
+            }
             msg if msg == app.show_console_msg_code => {
                 app.console.show();
             }

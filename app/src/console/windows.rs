@@ -11,6 +11,7 @@ use solar_screen_brightness_windows::Windows::Win32::{
     },
 };
 use solar_screen_brightness_windows::{set_and_get_error, WindowDataExtension};
+use std::sync::Arc;
 use std::time::SystemTime;
 
 // Passed as a pointer - it must be at a fixed heap address
@@ -21,12 +22,12 @@ struct WindowData {
 
 pub(super) struct Console {
     tray: TrayApplicationHandle,
-    controller: BrightnessController,
+    controller: Arc<BrightnessController>,
     window_data: Option<Box<WindowData>>,
 }
 
 impl Console {
-    pub(super) fn new(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
+    pub(super) fn new(tray: TrayApplicationHandle, controller: Arc<BrightnessController>) -> Self {
         Self {
             tray,
             controller,
@@ -47,7 +48,7 @@ impl Console {
 
     fn initialise(&mut self) {
         let tray = self.tray.clone();
-        let controller = self.controller.clone();
+        let controller = Arc::clone(&self.controller);
         launch_cursive(tray, controller);
         let handle = await_handle();
         let mut data = unsafe {

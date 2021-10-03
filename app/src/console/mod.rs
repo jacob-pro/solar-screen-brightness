@@ -8,12 +8,13 @@ mod console_impl;
 
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
+use std::sync::Arc;
 
 pub struct Console(console_impl::Console);
 
 impl Console {
     #[inline]
-    pub fn new(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
+    pub fn new(tray: TrayApplicationHandle, controller: Arc<BrightnessController>) -> Self {
         Self(console_impl::Console::new(tray, controller))
     }
 

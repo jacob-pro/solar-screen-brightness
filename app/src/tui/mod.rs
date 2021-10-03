@@ -1,6 +1,5 @@
-use crate::config::Config;
 use crate::controller::apply::ApplyResult;
-use crate::controller::{BrightnessController, Observer};
+use crate::controller::{BrightnessController, Delegate};
 use crate::cursive::event::Event;
 use crate::cursive::{CbSink, Cursive, CursiveExt};
 use crate::tray::TrayApplicationHandle;
@@ -12,12 +11,12 @@ mod show_status;
 
 pub struct UserData {
     tray: TrayApplicationHandle,
-    controller: BrightnessController,
+    controller: Arc<BrightnessController>,
 }
 
 struct CursiveObserver(CbSink);
 
-impl Observer for CursiveObserver {
+impl Delegate for CursiveObserver {
     fn did_set_enabled(&self, running: bool) {
         self.0
             .send(Box::new(move |s| {
@@ -33,11 +32,9 @@ impl Observer for CursiveObserver {
             }))
             .unwrap();
     }
-
-    fn did_set_config(&self, _config: &Config) {}
 }
 
-pub fn launch_cursive(tray: TrayApplicationHandle, controller: BrightnessController) {
+pub fn launch_cursive(tray: TrayApplicationHandle, controller: Arc<BrightnessController>) {
     std::thread::spawn(move || {
         log::info!("Cursive thread starting");
         let mut siv = Cursive::default();
@@ -47,16 +44,16 @@ pub fn launch_cursive(tray: TrayApplicationHandle, controller: BrightnessControl
 
         siv.set_user_data(UserData {
             tray,
-            controller: controller.clone(),
+            controller: Arc::clone(&controller),
         });
 
         siv.add_layer(main_menu::create());
         main_menu::running_change(&mut siv, controller.get_enabled());
 
-        let delegate: Arc<dyn Observer + Send + Sync> =
+        let delegate: Arc<dyn Delegate + Send + Sync> =
             Arc::new(CursiveObserver(siv.cb_sink().clone()));
 
-        controller.register(Arc::downgrade(&delegate));
+        controller.set_delegate(Arc::downgrade(&delegate));
 
         siv.run();
         log::info!("Cursive thread stopping");
