@@ -1,15 +1,16 @@
 use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use crate::tui::launch_cursive;
+use std::sync::Arc;
 
 pub(super) struct Console {
     tray: TrayApplicationHandle,
-    controller: BrightnessController,
+    controller: Arc<BrightnessController>,
     running: bool,
 }
 
 impl Console {
-    pub(super) fn new(tray: TrayApplicationHandle, controller: BrightnessController) -> Self {
+    pub(super) fn new(tray: TrayApplicationHandle, controller: Arc<BrightnessController>) -> Self {
         Self {
             tray,
             controller,
@@ -20,8 +21,7 @@ impl Console {
     pub(super) fn show(&mut self) {
         if !self.running {
             let tray = self.tray.clone();
-            let controller = self.controller.clone();
-            launch_cursive(tray, controller);
+            launch_cursive(tray, Arc::clone(&self.controller));
             self.running = true;
         }
     }

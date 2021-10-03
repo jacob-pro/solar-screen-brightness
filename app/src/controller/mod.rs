@@ -1,4 +1,6 @@
 pub mod apply;
+#[cfg(target_os = "linux")]
+mod monitor;
 mod worker;
 
 use crate::config::Config;
@@ -20,6 +22,8 @@ pub struct BrightnessController {
     enabled: RwLock<bool>,
     last_result: Arc<RwLock<ApplyResult>>,
     worker: Arc<RwLock<Option<SyncSender<worker::Message>>>>,
+    #[cfg(target_os = "linux")]
+    monitor: RwLock<Option<Monitor>>,
     delegate: Arc<RwLock<DelegateImpl>>,
 }
 
@@ -35,6 +39,8 @@ impl BrightnessController {
             enabled: RwLock::new(true),
             last_result: Arc::new(RwLock::new(ApplyResult::None)),
             worker: Arc::new(RwLock::new(None)),
+            #[cfg(target_os = "linux")]
+            monitor: RwLock::new(None),
             delegate: Arc::new(RwLock::new(delegate as DelegateImpl)),
         }
     }
@@ -56,12 +62,20 @@ impl BrightnessController {
                     .upgrade()
                     .map(|d| d.did_set_last_result(&*last_result_rw));
             });
-            *worker = Some(sender);
+            *worker = Some(sender.clone());
 
-            // watch_ddcci_add(Arc::downgrade(&self.0));
+            self.start_platform();
         } else {
             log::warn!("BrightnessController is already running, ignoring");
         }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn start_platform(&self) {}
+
+    #[cfg(target_os = "linux")]
+    fn start_platform(&self) {
+        *self.monitor.write().unwrap() = Some(monitor::Monitor::start(sender));
     }
 
     pub fn stop(&self) {
@@ -71,9 +85,18 @@ impl BrightnessController {
             None => {}
             Some(tx) => {
                 log::info!("Stopping Brightness Worker");
+                self.stop_platform();
                 tx.send(worker::Message::Terminate).unwrap();
             }
         }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn stop_platform(&self) {}
+
+    #[cfg(target_os = "linux")]
+    fn stop_platform(&self) {
+        *self.monitor.write().unwrap() = None;
     }
 
     #[allow(unused)]
@@ -131,6 +154,15 @@ impl BrightnessController {
         delegate_r.upgrade().map(|d| d.did_set_config(&*config_rw));
         before
     }
+
+    #[allow(unused)]
+    pub fn force_refresh(&self) {
+        self.worker
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(|w| w.send(worker::Message::ForceRefresh).unwrap());
+    }
 }
 
 impl Drop for BrightnessController {
@@ -138,43 +170,3 @@ impl Drop for BrightnessController {
         self.stop();
     }
 }
-
-#[cfg(target_os = "linux")]
-fn watch_ddcci_add(weak: Weak<RwLock<State>>) {
-    use nix::poll::{poll, PollFd, PollFlags};
-    use std::ffi::CString;
-    use std::os::unix::prelude::AsRawFd;
-    use udev::ffi::{udev_device_get_action, udev_monitor_receive_device};
-    use udev::{AsRaw, MonitorBuilder};
-    std::thread::spawn(move || {
-        if let Err(e) = (|| -> anyhow::Result<()> {
-            let listener = MonitorBuilder::new()?.match_subsystem("ddcci")?.listen()?;
-            log::info!("Watching for monitor connections");
-            loop {
-                let pfd = PollFd::new(listener.as_raw_fd(), PollFlags::POLLIN);
-                poll(&mut [pfd], -1)?;
-                let action = unsafe {
-                    let dev = udev_monitor_receive_device(listener.as_raw());
-                    let raw = udev_device_get_action(dev);
-                    let cs = CString::from_raw(raw as *mut _);
-                    cs.to_str()?.to_owned()
-                };
-                match weak.upgrade() {
-                    None => break,
-                    Some(controller) => {
-                        if action == "add" {
-                            log::error!("Notified of ddcci add event, triggering refresh");
-                            // TODO:
-                        }
-                    }
-                }
-            }
-            Ok(())
-        })() {
-            log::error!("Error occurred watching for monitor connections {:#}", e);
-        }
-    });
-}
-
-// #[cfg(not(target_os = "linux"))]
-// fn watch_ddcci_add(_: Weak<RwLock<State>>) {}

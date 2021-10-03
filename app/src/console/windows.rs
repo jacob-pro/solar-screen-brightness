@@ -48,7 +48,7 @@ impl Console {
 
     fn initialise(&mut self) {
         let tray = self.tray.clone();
-        let controller = self.controller.clone();
+        let controller = Arc::clone(&self.controller);
         launch_cursive(tray, controller);
         let handle = await_handle();
         let mut data = unsafe {

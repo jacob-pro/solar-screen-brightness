@@ -44,7 +44,7 @@ pub fn launch_cursive(tray: TrayApplicationHandle, controller: Arc<BrightnessCon
 
         siv.set_user_data(UserData {
             tray,
-            controller: controller.clone(),
+            controller: Arc::clone(&controller),
         });
 
         siv.add_layer(main_menu::create());
