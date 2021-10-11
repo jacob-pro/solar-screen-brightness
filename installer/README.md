@@ -13,3 +13,13 @@ What the installer does:
 1. Writes the app binary to `~/.config/Solar Screen Brightness/`
 2. Creates a desktop entry in `~/.local/share/applications/`
 3. Creates an autostart entry in `~/.config/autostart/`
+
+
+## Development
+
+To create a release use:
+
+```
+git tag -a <TAG> <COMMIT> -m "Message"
+git push origin <TAG>
+```

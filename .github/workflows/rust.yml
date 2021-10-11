@@ -13,6 +13,12 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            exe_suffix: .exe
+            exe_name: windows
+          - os: ubuntu-latest
+            exe_name: linux
 
     steps:
       - if: ${{ matrix.os == 'windows-latest' }}
@@ -47,6 +53,21 @@ jobs:
       - name: Cargo Test (Installer)
         run: cargo test
         working-directory: ./installer
+
+      - if: startsWith(github.ref, 'refs/tags/')
+        name: Compile Release
+        run: cargo build --release
+        working-directory: ./installer
+
+      - if: startsWith(github.ref, 'refs/tags/')
+        name: Copy Binary
+        run: cp ./installer/target/release/solar-screen-brightness-installer${{ matrix.exe_suffix }} ./installer-${{ matrix.exe_name }}${{ matrix.exe_suffix }}
+
+      - if: startsWith(github.ref, 'refs/tags/')
+        name: Github Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./installer-${{ matrix.exe_name }}${{ matrix.exe_suffix }}
 
   check_style:
     strategy:
