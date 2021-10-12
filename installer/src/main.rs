@@ -37,6 +37,7 @@ struct Opts {
 }
 
 fn main() {
+    console_subsystem_fix();
     let opts: Opts = Opts::parse();
     std::process::exit((|| {
         env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
@@ -50,4 +51,13 @@ fn main() {
         }
         0
     })());
+}
+
+#[cfg(not(windows))]
+pub fn console_subsystem_fix() {}
+
+#[cfg(windows)]
+pub fn console_subsystem_fix() {
+    log::trace!("Ensuring Windows Console hidden if necessary");
+    solar_screen_brightness_windows::hide_process_console_window();
 }
