@@ -60,4 +60,4 @@ RUN+="/bin/bash -c '/bin/chmod g+w /sys/class/backlight/*/brightness'"
 ## Known Issues
 
 - [Monitors connected via a USB-C dock, on Intel devices, require updating to the Linux Kernel 5.10 for DDC/CI to work](https://gitlab.freedesktop.org/drm/intel/-/issues/37).
-- [Hot swapping monitors is not supported, you need to reload the kernel module](https://gitlab.com/ddcci-driver-linux/ddcci-driver-linux/-/issues/5)
+- [Hot swapping monitors is not yet supported, you need to reload the kernel module](https://gitlab.com/ddcci-driver-linux/ddcci-driver-linux/-/issues/5)

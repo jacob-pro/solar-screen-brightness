@@ -18,7 +18,7 @@ jobs:
             exe_suffix: .exe
             exe_name: windows
           - os: ubuntu-latest
-            exe_name: linux
+            exe_name: ubuntu20
 
     steps:
       - if: ${{ matrix.os == 'windows-latest' }}
