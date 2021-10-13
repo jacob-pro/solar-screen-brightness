@@ -112,7 +112,7 @@ impl ShowConsoleWatcher {
                     loop {
                         let len = read(fd, buffer.as_mut_slice())?;
                         if len == 0 {
-                            break;  // Occurs when the writer disconnects, reopen the file and wait again
+                            break; // Occurs when the writer disconnects, reopen the file and wait again
                         }
                         match buffer[0] {
                             MSG_SHOW_CONSOLE => action(),
