@@ -1,16 +1,15 @@
 use crate::assets::Assets;
 use crate::console::Console;
 use crate::controller::BrightnessController;
-use crate::lock::ApplicationLock;
+use crate::lock::{ApplicationLock, ShowConsoleWatcher};
 use crate::tray::TrayApplicationHandle;
 use cpp_core::{Ptr, StaticUpcast};
 use cursive::Cursive;
-use qt_core::{qs, slot, QBox, QCoreApplication, QObject, QPtr, QTimer, SlotNoArgs, SlotOfBool};
+use qt_core::{qs, slot, QBox, QObject, QPtr, SlotOfBool};
 use qt_gui::{QIcon, QPixmap};
 use qt_widgets::{QAction, QApplication, QMenu, QSystemTrayIcon};
-use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender, TryRecvError};
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::Arc;
 
 #[allow(unused)]
@@ -18,9 +17,7 @@ struct TrayApplication {
     tray: QBox<QSystemTrayIcon>,
     menu: QBox<QMenu>,
     action: QPtr<QAction>,
-    rx: Receiver<Message>,
-    console: RefCell<Console>,
-    lock: ApplicationLock,
+    sender: SyncSender<Message>,
 }
 
 impl StaticUpcast<QObject> for TrayApplication {
@@ -29,12 +26,14 @@ impl StaticUpcast<QObject> for TrayApplication {
     }
 }
 
+enum Message {
+    ShowConsole,
+    CloseConsole,
+    ExitApplication,
+}
+
 impl TrayApplication {
-    unsafe fn new(
-        controller: Arc<BrightnessController>,
-        lock: ApplicationLock,
-        launch_console: bool,
-    ) -> Rc<Self> {
+    unsafe fn new(sender: SyncSender<Message>) -> Rc<Self> {
         let tray_icon = QSystemTrayIcon::new();
 
         // Set up the icon
@@ -53,72 +52,62 @@ impl TrayApplication {
         tray_icon.set_context_menu(&menu);
         tray_icon.show();
 
-        let (tx, rx) = sync_channel::<Message>(0);
-        let handle = TrayApplicationHandle(Handle(tx));
-        let mut console = Console::new(handle, controller);
-        if launch_console {
-            console.show();
-        }
-
         let this = Rc::new(Self {
             tray: tray_icon,
             menu,
             action,
-            rx,
-            console: RefCell::new(console),
-            lock,
+            sender,
         });
 
-        let timer = QTimer::new_1a(&this.tray);
         this.action
             .triggered()
             .connect(&this.slot_on_action_triggered());
-        timer.timeout().connect(&this.slot_on_event_loop());
-        timer.start_1a(0);
 
         this
     }
 
     #[slot(SlotOfBool)]
     unsafe fn on_action_triggered(self: &Rc<Self>, _: bool) {
-        self.console.borrow_mut().show();
-    }
-
-    #[slot(SlotNoArgs)]
-    unsafe fn on_event_loop(self: &Rc<Self>) {
-        if self.lock.should_show_console() {
-            self.console.borrow_mut().show();
-        }
-        match self.rx.try_recv() {
-            Ok(message) => match message {
-                Message::CloseConsole => {
-                    self.console.borrow_mut().hide();
-                }
-                Message::ExitApplication => {
-                    QCoreApplication::quit();
-                }
-            },
-            Err(e) => match e {
-                TryRecvError::Empty => {}
-                TryRecvError::Disconnected => {
-                    panic!("Tray Handle disconnected");
-                }
-            },
-        }
+        self.sender.send(Message::ShowConsole).unwrap();
     }
 }
 
-pub fn run(controller: Arc<BrightnessController>, lock: ApplicationLock, launch_console: bool) {
-    QApplication::init(|_| unsafe {
-        assert!(QSystemTrayIcon::is_system_tray_available());
-        let _tray = TrayApplication::new(controller, lock, launch_console);
-        QApplication::exec()
+pub fn run(controller: Arc<BrightnessController>, _: ApplicationLock, launch_console: bool) {
+    let (sync_sender, receiver) = sync_channel(0);
+
+    let ss2 = sync_sender.clone();
+    let _watcher = ShowConsoleWatcher::start(move || {
+        ss2.send(Message::ShowConsole).unwrap();
     });
-}
 
-enum Message {
-    CloseConsole,
-    ExitApplication,
+    let handle = TrayApplicationHandle(Handle(sync_sender.clone()));
+    let mut console = Console::new(handle, controller);
+    if launch_console {
+        console.show();
+    }
+
+    let ss3 = sync_sender.clone();
+    std::thread::spawn(move || {
+        QApplication::init(|_| unsafe {
+            assert!(QSystemTrayIcon::is_system_tray_available());
+            let _tray = TrayApplication::new(ss3);
+            QApplication::exec()
+        });
+    });
+
+    loop {
+        match receiver.recv().unwrap() {
+            Message::CloseConsole => {
+                console.hide();
+            }
+            Message::ExitApplication => {
+                break;
+            }
+            Message::ShowConsole => {
+                console.show();
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
