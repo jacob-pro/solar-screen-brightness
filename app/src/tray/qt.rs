@@ -1,7 +1,7 @@
 use crate::assets::Assets;
 use crate::console::Console;
 use crate::controller::BrightnessController;
-use crate::lock::ApplicationLock;
+use crate::lock::{ApplicationLock, ShowConsoleWatcher};
 use crate::tray::TrayApplicationHandle;
 use cpp_core::{Ptr, StaticUpcast};
 use cursive::Cursive;
@@ -72,8 +72,13 @@ impl TrayApplication {
     }
 }
 
-pub fn run(controller: Arc<BrightnessController>, lock: ApplicationLock, launch_console: bool) {
+pub fn run(controller: Arc<BrightnessController>, _: ApplicationLock, launch_console: bool) {
     let (sync_sender, receiver) = sync_channel(0);
+
+    let ss2 = sync_sender.clone();
+    let _watcher = ShowConsoleWatcher::start(move || {
+        ss2.send(Message::ShowConsole).unwrap();
+    });
 
     let handle = TrayApplicationHandle(Handle(sync_sender.clone()));
     let mut console = Console::new(handle, controller);
@@ -81,11 +86,11 @@ pub fn run(controller: Arc<BrightnessController>, lock: ApplicationLock, launch_
         console.show();
     }
 
-    let ss2 = sync_sender.clone();
+    let ss3 = sync_sender.clone();
     std::thread::spawn(move || {
         QApplication::init(|_| unsafe {
             assert!(QSystemTrayIcon::is_system_tray_available());
-            let _tray = TrayApplication::new(ss2);
+            let _tray = TrayApplication::new(ss3);
             QApplication::exec()
         });
     });

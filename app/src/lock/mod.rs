@@ -7,18 +7,15 @@ mod lock_impl;
 #[path = "windows.rs"]
 mod lock_impl;
 
+#[cfg(unix)]
+pub use lock_impl::ShowConsoleWatcher;
+
 pub struct ApplicationLock(lock_impl::Lock);
 
 impl ApplicationLock {
     #[inline]
     pub fn acquire() -> Option<Self> {
         lock_impl::Lock::acquire().map(|l| ApplicationLock(l))
-    }
-
-    #[cfg(unix)]
-    #[inline]
-    pub fn should_show_console(&self) -> bool {
-        self.0.should_show_console()
     }
 
     #[inline]
