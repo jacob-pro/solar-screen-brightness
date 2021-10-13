@@ -16,72 +16,60 @@ lazy_static! {
 const MSG_SHOW_CONSOLE: u8 = 1;
 const MSG_STOP_WATCHING: u8 = 2;
 
-pub(super) struct Lock {
-    fd: Option<RawFd>,
+pub fn acquire() -> Result<Lock, Existing> {
+    match mkfifo(IPC_PATH.as_path(), Mode::S_IWUSR | Mode::S_IRUSR) {
+        Ok(_) => {}
+        Err(Errno::EEXIST) => {}
+        Err(e) => {
+            log::warn!(
+                "Unexpected error acquiring lock: mkfifo() {}, ignoring with dummy lock",
+                e
+            );
+            return Ok(Lock { fd: None });
+        }
+    }
+    match open(
+        IPC_PATH.as_path(),
+        OFlag::O_WRONLY | OFlag::O_NONBLOCK,
+        Mode::empty(),
+    ) {
+        Ok(fd) => {
+            Err(Existing(fd)) // Success means that a reading process exists
+        }
+        Err(Errno::ENXIO) => {
+            log::info!(
+                "Acquired lock (no readers exist) on {}",
+                IPC_PATH.to_str().unwrap()
+            );
+            // We must create a reader to hold the lock
+            // We must use non block otherwise it will block until a writer is connected
+            let fd = open(
+                IPC_PATH.as_path(),
+                OFlag::O_RDONLY | OFlag::O_NONBLOCK,
+                Mode::empty(),
+            )
+            .map_err(|e| {
+                log::warn!(
+                    "Failed to open {} for reading: {}",
+                    IPC_PATH.to_str().unwrap(),
+                    e
+                );
+            })
+            .ok();
+            Ok(Lock { fd: fd })
+        }
+        Err(e) => {
+            log::warn!(
+                "Unexpected error acquiring lock: open() {}, ignoring with dummy lock",
+                e
+            );
+            Ok(Lock { fd: None })
+        }
+    }
 }
 
-impl Lock {
-    pub fn acquire() -> Option<Self> {
-        match mkfifo(IPC_PATH.as_path(), Mode::S_IWUSR | Mode::S_IRUSR) {
-            Ok(_) => {}
-            Err(Errno::EEXIST) => {}
-            Err(e) => {
-                log::warn!(
-                    "Unexpected error acquiring lock: mkfifo() {}, ignoring with dummy lock",
-                    e
-                );
-                return Some(Lock { fd: None });
-            }
-        }
-        match open(
-            IPC_PATH.as_path(),
-            OFlag::O_WRONLY | OFlag::O_NONBLOCK,
-            Mode::empty(),
-        ) {
-            Ok(fd) => {
-                close(fd).ok(); // Success means that a reading process exists
-                None
-            }
-            Err(Errno::ENXIO) => {
-                log::info!(
-                    "Acquired lock (no readers exist) on {}",
-                    IPC_PATH.to_str().unwrap()
-                );
-                // We must create a reader to hold the lock
-                // We must use non block otherwise it will block until a writer is connected
-                let fd = open(
-                    IPC_PATH.as_path(),
-                    OFlag::O_RDONLY | OFlag::O_NONBLOCK,
-                    Mode::empty(),
-                )
-                .map_err(|e| {
-                    log::warn!(
-                        "Failed to open {} for reading: {}",
-                        IPC_PATH.to_str().unwrap(),
-                        e
-                    );
-                })
-                .ok();
-                Some(Lock { fd: fd })
-            }
-            Err(e) => {
-                log::warn!(
-                    "Unexpected error acquiring lock: open() {}, ignoring with dummy lock",
-                    e
-                );
-                return Some(Lock { fd: None });
-            }
-        }
-    }
-
-    pub fn show_console_in_owning_process() -> Result<(), anyhow::Error> {
-        let fd = open(IPC_PATH.as_path(), OFlag::O_WRONLY, Mode::empty())
-            .map_err(|e| anyhow!("Opening pipe failed with: {}", e))?;
-        write(fd, vec![MSG_SHOW_CONSOLE].as_slice())
-            .map_err(|e| anyhow!("Writing to pipe failed with: {}", e))?;
-        close(fd).ok();
-        Ok(())
-    }
+pub struct Lock {
+    fd: Option<RawFd>,
 }
 
 impl Drop for Lock {
@@ -90,6 +78,22 @@ impl Drop for Lock {
             close(*fd).ok();
             unlink(IPC_PATH.as_path()).ok();
         });
+    }
+}
+
+pub struct Existing(RawFd);
+
+impl Existing {
+    pub fn show_console(&self) -> std::result::Result<(), anyhow::Error> {
+        write(self.0, vec![MSG_SHOW_CONSOLE].as_slice())
+            .map_err(|e| anyhow!("Writing to pipe failed with: {}", e))?;
+        Ok(())
+    }
+}
+
+impl Drop for Existing {
+    fn drop(&mut self) {
+        close(self.0).ok();
     }
 }
 
@@ -108,15 +112,18 @@ impl ShowConsoleWatcher {
                     loop {
                         let len = read(fd, buffer.as_mut_slice())?;
                         if len == 0 {
-                            break;
+                            break;  // Occurs when the writer disconnects, reopen the file and wait again
                         }
                         match buffer[0] {
                             MSG_SHOW_CONSOLE => action(),
-                            MSG_STOP_WATCHING => break 'outer,
+                            MSG_STOP_WATCHING => {
+                                log::info!("ShowConsoleWatcher is stopping");
+                                close(fd).ok();
+                                break 'outer;
+                            }
                             _ => {}
                         }
                     }
-                    log::info!("ShowConsoleWatcher is stopping");
                     close(fd).ok();
                 }
                 Ok(())

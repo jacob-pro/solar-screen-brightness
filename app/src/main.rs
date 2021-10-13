@@ -20,7 +20,6 @@ pub use solar_screen_brightness_windows::cursive;
 use crate::config::Config;
 use crate::controller::apply::{get_devices, get_properties};
 use crate::controller::BrightnessController;
-use crate::lock::ApplicationLock;
 use clap::{AppSettings, Clap};
 use env_logger::Env;
 use futures::executor::block_on;
@@ -87,8 +86,8 @@ fn main() {
 
 fn launch(args: LaunchArgs) -> i32 {
     init_logger();
-    match ApplicationLock::acquire() {
-        Some(lock) => {
+    match lock::acquire() {
+        Ok(lock) => {
             let config = Config::load().ok().unwrap_or_default();
             let controller = Arc::new(BrightnessController::new(config));
             controller.start();
@@ -96,10 +95,10 @@ fn launch(args: LaunchArgs) -> i32 {
             log::info!("Program exiting gracefully");
             EXIT_SUCCESS
         }
-        None => {
+        Err(e) => {
             log::error!("Failed to acquire lock - the application is already running");
             if !args.hide_console {
-                ApplicationLock::show_console_in_owning_process();
+                e.show_console_in_owning_process();
             }
             EXIT_FAILURE
         }
@@ -124,15 +123,15 @@ fn headless(args: HeadlessArgs) -> i32 {
         let (_res, wait) = controller::apply::apply(&config, true);
         wait.map(|wait| log::info!("Brightness valid until: {}", wait));
     } else {
-        match ApplicationLock::acquire() {
-            Some(_lock) => {
+        match lock::acquire() {
+            Ok(_lock) => {
                 let controller = BrightnessController::new(config);
                 controller.start();
                 loop {
                     std::thread::park();
                 }
             }
-            None => {
+            Err(_e) => {
                 log::error!("Failed to acquire lock - the application is already running");
                 return EXIT_FAILURE;
             }
