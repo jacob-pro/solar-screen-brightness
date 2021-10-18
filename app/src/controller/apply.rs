@@ -68,13 +68,16 @@ pub fn apply(config: &Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
                     match dev {
                         Ok(mut dev) => match block_on(dev.set(br.brightness)) {
                             Err(e) => {
-                                log::error!("An error occurred setting monitor brightness: {}", e);
+                                log::error!(
+                                    "An error occurred setting monitor brightness: {}",
+                                    error_debug(&e)
+                                );
                                 errors.push(e);
                             }
                             _ => {}
                         },
                         Err(e) => {
-                            log::error!("An error occurred getting monitors: {}", e);
+                            log::error!("An error occurred getting monitors: {}", error_debug(&e));
                             errors.push(e);
                         }
                     }
@@ -120,4 +123,19 @@ pub async fn get_properties(
     Ok(hashmap! {
         "device_name" => device.device_name().await?,
     })
+}
+
+fn error_debug(e: &dyn std::error::Error) -> String {
+    let mut msg = format!("{:?}", e);
+    let mut src = e.source();
+    loop {
+        match src {
+            None => break,
+            Some(inner) => {
+                msg.push_str(&format!(" - {:?}", inner));
+                src = inner.source();
+            }
+        }
+    }
+    msg
 }
