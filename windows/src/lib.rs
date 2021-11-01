@@ -65,3 +65,20 @@ where
     let result = f();
     HRESULT::from_thread().ok().map(|_| result)
 }
+
+/// Shows a MessageBox on Panic
+pub fn wrap_panic_hook() {
+    use Windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONSTOP, MB_OK};
+    let before = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| unsafe {
+        before(info);
+        let title = "Fatal Error";
+        let text = format!("{}", info);
+        MessageBoxW(
+            Windows::Win32::Foundation::HWND::NULL,
+            text,
+            title,
+            MB_OK | MB_ICONSTOP,
+        );
+    }));
+}

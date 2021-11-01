@@ -68,7 +68,7 @@ impl Default for SubCommand {
 
 fn main() {
     std::process::exit((|| {
-        console_subsystem_fix();
+        windows_tweaks();
         let opts: Opts = match Opts::try_parse() {
             Err(e) => {
                 e.print().ok();
@@ -175,10 +175,11 @@ fn init_logger() {
 }
 
 #[cfg(not(windows))]
-pub fn console_subsystem_fix() {}
+pub fn windows_tweaks() {}
 
 #[cfg(windows)]
-pub fn console_subsystem_fix() {
+pub fn windows_tweaks() {
+    solar_screen_brightness_windows::wrap_panic_hook();
     // This app is built with /SUBSYTEM:CONSOLE
     // This is so that we can use the console functions or view the logs
     // However when launched as a desktop application Windows auto starts a console window
