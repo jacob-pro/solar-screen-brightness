@@ -158,9 +158,9 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "brightness"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3051f04f52afc0b6f6bb2d50d5a882632a5392ba137715d54a8cde59b756814c"
+checksum = "7443de37611da02e43a809cd3b62f7bf366f3d5275cdaae34568e6a4aae5b7f5"
 dependencies = [
  "async-trait",
  "brightness-windows",
@@ -172,9 +172,9 @@ dependencies = [
 
 [[package]]
 name = "brightness-windows"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbc9fc53df7cd4894802642447ff10d76c9f2eff1e179e4b645df3fb428b97ef"
+checksum = "741fdda999ae5674e34752bfd57a5084e95b0501098b4155239c421aff850b66"
 dependencies = [
  "windows",
 ]
