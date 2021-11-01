@@ -7,7 +7,7 @@ build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.43"
-brightness = { version = "0.3.0" }
+brightness = { version = "0.3.1" }
 chrono = "0.4"
 clap = "3.0.0-beta.4"
 config = "0.10.1"
