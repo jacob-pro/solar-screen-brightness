@@ -20,7 +20,7 @@ pub use solar_screen_brightness_windows::cursive;
 use crate::config::Config;
 use crate::controller::apply::{get_devices, get_properties};
 use crate::controller::BrightnessController;
-use clap::{AppSettings, Clap};
+use clap::Parser;
 use env_logger::Env;
 use futures::executor::block_on;
 use std::sync::Arc;
@@ -30,27 +30,26 @@ pub const APP_NAME: &'static str = "Solar Screen Brightness";
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version = "1.0", author = "Jacob Halsey <jacob@jhalsey.com>")]
-#[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
     #[clap(subcommand)]
     subcmd: Option<SubCommand>,
 }
 
-#[derive(Clap, Default)]
+#[derive(Parser, Default)]
 struct LaunchArgs {
     #[clap(long, about = "Don't automatically display the console")]
     hide_console: bool,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct HeadlessArgs {
     #[clap(long, about = "Compute and apply brightness once, then exit")]
     once: bool,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum SubCommand {
     #[clap(about = "(default)")]
     Launch(LaunchArgs),

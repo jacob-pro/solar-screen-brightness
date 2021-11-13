@@ -1,8 +1,7 @@
 use crate::config::Config;
 use crate::controller::apply::{apply, ApplyResult};
-use chrono::Utc;
 use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, SyncSender};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub struct Worker<T> {
     enabled: bool,
@@ -52,9 +51,12 @@ where
 
         let wait = next_run.map(|next_run| {
             // Wait for the next run, or a notification
-            let unix_time_now = Utc::now().timestamp();
+            let unix_time_now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
             if next_run > unix_time_now {
-                next_run - unix_time_now
+                (next_run - unix_time_now) as u64
             } else {
                 0
             }
@@ -66,8 +68,16 @@ where
                 self.receiver.recv().map_err(|e| e.into())
             }
             Some(wait) => {
-                log::info!("Brightness Worker sleeping for {}s", wait);
-                self.receiver.recv_timeout(Duration::from_secs(wait as u64))
+                let hours = (wait / 60) / 60;
+                let minutes = (wait / 60) % 60;
+                let seconds = wait % 60;
+                log::info!(
+                    "Brightness Worker sleeping for {}:{:02}:{:02}",
+                    hours,
+                    minutes,
+                    seconds
+                );
+                self.receiver.recv_timeout(Duration::from_secs(wait))
             }
         };
 

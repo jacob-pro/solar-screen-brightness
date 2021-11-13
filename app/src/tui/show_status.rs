@@ -22,7 +22,7 @@ where
     .title("Current Status")
 }
 
-const DATE_FORMAT: &str = "%H:%M %P";
+const DATE_FORMAT: &str = "%b %d %H:%M %P";
 
 pub fn status_update(cursive: &mut Cursive, update: ApplyResult) {
     let mut s = String::new();
