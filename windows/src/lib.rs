@@ -1,17 +1,19 @@
 pub use cursive;
-pub use windows;
-windows::include_bindings!();
+
+use windows::core::Error;
+use windows::Win32::Foundation::{SetLastError, HANDLE, HWND};
+use windows::Win32::System::Console::GetConsoleWindow;
+use windows::Win32::System::Threading::GetCurrentProcessId;
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetWindowLongPtrW, GetWindowThreadProcessId, MessageBoxW, ShowWindow, GWLP_USERDATA,
+    MB_ICONSTOP, MB_OK, SW_HIDE,
+};
 
 /// Hides the current Console Window if and only if the Window belongs to the current process
 pub fn hide_process_console_window() {
-    use Windows::Win32::{
-        System::Console::GetConsoleWindow,
-        System::Threading::GetCurrentProcessId,
-        UI::WindowsAndMessaging::{GetWindowThreadProcessId, ShowWindow, SW_HIDE},
-    };
     unsafe {
         let console = GetConsoleWindow();
-        if !console.is_null() {
+        if !HANDLE(console).is_invalid() {
             let mut console_pid = 0;
             GetWindowThreadProcessId(console, &mut console_pid);
             if console_pid == GetCurrentProcessId() {
@@ -43,9 +45,8 @@ pub trait WindowDataExtension {
     unsafe fn get_user_data<T>(&self) -> Option<&mut T>;
 }
 
-impl WindowDataExtension for Windows::Win32::Foundation::HWND {
+impl WindowDataExtension for HWND {
     unsafe fn get_user_data<T>(&self) -> Option<&mut T> {
-        use Windows::Win32::UI::WindowsAndMessaging::{GetWindowLongPtrW, GWLP_USERDATA};
         let user_data = set_and_get_error(|| GetWindowLongPtrW(self, GWLP_USERDATA)).unwrap();
         if user_data == 0 {
             return None;
@@ -55,30 +56,27 @@ impl WindowDataExtension for Windows::Win32::Foundation::HWND {
 }
 
 #[inline]
-pub unsafe fn set_and_get_error<F, R>(mut f: F) -> windows::Result<R>
+pub unsafe fn set_and_get_error<F, R>(mut f: F) -> windows::core::Result<R>
 where
     F: FnMut() -> R,
 {
-    use windows::HRESULT;
-    use Windows::Win32::System::Diagnostics::Debug::SetLastError;
     SetLastError(0);
     let result = f();
-    HRESULT::from_thread().ok().map(|_| result)
+    let error = Error::from_win32();
+    if error == Error::OK {
+        Ok(result)
+    } else {
+        Err(error)
+    }
 }
 
 /// Shows a MessageBox on Panic
 pub fn wrap_panic_hook() {
-    use Windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONSTOP, MB_OK};
     let before = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| unsafe {
         before(info);
         let title = "Fatal Error";
         let text = format!("{}", info);
-        MessageBoxW(
-            Windows::Win32::Foundation::HWND::NULL,
-            text,
-            title,
-            MB_OK | MB_ICONSTOP,
-        );
+        MessageBoxW(HWND::default(), text, title, MB_OK | MB_ICONSTOP);
     }));
 }

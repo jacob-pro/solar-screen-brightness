@@ -6,7 +6,10 @@ use crate::lock::ApplicationLock;
 use crate::tray::TrayApplicationHandle;
 use crate::APP_NAME;
 use anyhow::Context;
-use solar_screen_brightness_windows::Windows::Win32::{
+use solar_screen_brightness_windows::{loword, set_and_get_error, WideString, WindowDataExtension};
+use std::panic::PanicInfo;
+use std::sync::Arc;
+use windows::Win32::{
     Foundation::{BOOL, HWND, LPARAM, LRESULT, PWSTR, WPARAM},
     System::LibraryLoader::GetModuleHandleW,
     System::RemoteDesktop::WTSRegisterSessionNotification,
@@ -17,14 +20,10 @@ use solar_screen_brightness_windows::Windows::Win32::{
         CreateIconFromResource, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW,
         MessageBoxW, PostMessageW, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
         SendMessageW, SetWindowLongPtrW, TranslateMessage, CW_USEDEFAULT, GWLP_USERDATA, HMENU,
-        MB_ICONSTOP, MB_OK, MSG, WINDOW_EX_STYLE, WM_APP, WM_DISPLAYCHANGE, WM_LBUTTONUP,
-        WM_RBUTTONUP, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK,
-        WTS_SESSION_UNLOCK,
+        MB_ICONSTOP, MB_OK, MSG, WM_APP, WM_DISPLAYCHANGE, WM_LBUTTONUP, WM_RBUTTONUP,
+        WM_WTSSESSION_CHANGE, WNDCLASSW, WS_OVERLAPPEDWINDOW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
     },
 };
-use solar_screen_brightness_windows::{loword, set_and_get_error, WideString, WindowDataExtension};
-use std::panic::PanicInfo;
-use std::sync::Arc;
 
 const SHOW_CONSOLE_MSG: &str = "solar-screen-brightness.show_console";
 const CALLBACK_MSG: u32 = WM_APP + 1;
@@ -42,7 +41,7 @@ pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch
     std::panic::set_hook(Box::new(handle_panic));
     unsafe {
         // Create Window Class
-        let hinstance = set_and_get_error(|| GetModuleHandleW(PWSTR::NULL)).unwrap();
+        let hinstance = set_and_get_error(|| GetModuleHandleW(PWSTR::default())).unwrap();
         let mut window_class = WNDCLASSW::default();
         window_class.lpfnWndProc = Some(tray_window_proc);
         window_class.hInstance = hinstance;
@@ -53,7 +52,7 @@ pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch
         // Create Window
         let hwnd = set_and_get_error(|| {
             CreateWindowExW(
-                WINDOW_EX_STYLE(0),
+                0,
                 PWSTR(atom as *mut u16),
                 "tray",
                 WS_OVERLAPPEDWINDOW,
@@ -61,8 +60,8 @@ pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
-                HWND::NULL,
-                HMENU::NULL,
+                HWND::default(),
+                HMENU::default(),
                 hinstance,
                 std::ptr::null_mut(),
             )
@@ -117,7 +116,7 @@ pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch
         // Start run loop
         let mut msg = MSG::default();
         loop {
-            let ret = GetMessageW(&mut msg, HWND::NULL, 0, 0).0;
+            let ret = GetMessageW(&mut msg, HWND::default(), 0, 0).0;
             match ret {
                 -1 => {
                     panic!("GetMessage failed");
@@ -144,7 +143,7 @@ unsafe extern "system" fn tray_window_proc(
     match hwnd.get_user_data::<WindowData>() {
         None => {}
         Some(app) => match msg {
-            CALLBACK_MSG => match loword(l_param.0 as u32) {
+            CALLBACK_MSG => match loword(l_param as u32) {
                 WM_LBUTTONUP | WM_RBUTTONUP => {
                     app.console.show();
                 }
@@ -156,7 +155,7 @@ unsafe extern "system" fn tray_window_proc(
             EXIT_APPLICATION_MSG => {
                 PostQuitMessage(0);
             }
-            WM_WTSSESSION_CHANGE => match w_param.0 as u32 {
+            WM_WTSSESSION_CHANGE => match w_param as u32 {
                 WTS_SESSION_LOCK => {
                     log::info!("Detected session lock, ensuring dynamic brightness disabled");
                     app.prev_running = app.controller.get_enabled();
@@ -191,7 +190,7 @@ pub(super) struct Handle(HWND);
 impl Handle {
     fn send_message(&self, msg: u32) {
         unsafe {
-            SendMessageW(self.0, msg, WPARAM(0), LPARAM(0));
+            SendMessageW(self.0, msg, 0, 0);
         }
     }
 
@@ -209,7 +208,7 @@ fn handle_panic(info: &PanicInfo) {
     unsafe {
         let text = format!("{}", info);
         MessageBoxW(
-            HWND::NULL,
+            HWND::default(),
             text.as_str(),
             "Fatal Error",
             MB_OK | MB_ICONSTOP,
@@ -219,11 +218,11 @@ fn handle_panic(info: &PanicInfo) {
 }
 
 pub fn show_console_in_owning_process() -> Result<(), anyhow::Error> {
-    const HWND_BROADCAST: HWND = HWND(0xffff);
+    const HWND_BROADCAST: HWND = 0xffff;
     unsafe {
         let msg = set_and_get_error(|| RegisterWindowMessageW(SHOW_CONSOLE_MSG))
             .context("Registering window message")?;
-        set_and_get_error(|| PostMessageW(HWND_BROADCAST, msg, WPARAM(0), LPARAM(0)))
+        set_and_get_error(|| PostMessageW(HWND_BROADCAST, msg, 0, 0))
             .context("Posting window broadcast")?;
     }
     Ok(())
