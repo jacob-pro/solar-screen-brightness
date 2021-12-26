@@ -2,7 +2,11 @@ use crate::controller::BrightnessController;
 use crate::tray::TrayApplicationHandle;
 use crate::tui::launch_cursive;
 use crate::APP_NAME;
-use solar_screen_brightness_windows::Windows::Win32::{
+use solar_screen_brightness_windows::{set_and_get_error, WindowDataExtension};
+use std::sync::Arc;
+use std::time::SystemTime;
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::WindowsAndMessaging::{
         BringWindowToTop, CallWindowProcW, GetWindowLongPtrW, SetForegroundWindow,
@@ -10,9 +14,6 @@ use solar_screen_brightness_windows::Windows::Win32::{
         SW_HIDE, SW_RESTORE, WM_CLOSE, WM_SYSCOMMAND, WNDPROC,
     },
 };
-use solar_screen_brightness_windows::{set_and_get_error, WindowDataExtension};
-use std::sync::Arc;
-use std::time::SystemTime;
 
 // Passed as a pointer - it must be at a fixed heap address
 struct WindowData {
@@ -97,14 +98,14 @@ unsafe extern "system" fn window_proc(
     let intercept_close = || {
         log::info!("Intercepted console window close, hiding instead");
         window_data.hide();
-        LRESULT(0)
+        0
     };
     match msg {
         WM_CLOSE => {
             return intercept_close();
         }
         WM_SYSCOMMAND => {
-            if wparam == WPARAM(SC_CLOSE as usize) {
+            if wparam == (SC_CLOSE as usize) {
                 return intercept_close();
             }
         }
@@ -112,7 +113,7 @@ unsafe extern "system" fn window_proc(
     };
     let ptr = window_data.old_proc as *mut ();
     let code: WNDPROC = std::mem::transmute(ptr);
-    CallWindowProcW(Some(code), hwnd, msg, wparam, lparam)
+    CallWindowProcW(code, hwnd, msg, wparam, lparam)
 }
 
 fn await_handle() -> HWND {
@@ -126,7 +127,7 @@ fn await_handle() -> HWND {
         unsafe {
             let dur = SystemTime::now().duration_since(start).unwrap();
             let ms = dur.as_micros() as f64 / 1000.0;
-            if !PDC_hWnd.is_null() {
+            if !HANDLE(PDC_hWnd).is_invalid() {
                 log::info!("Found valid PDC_hWnd in {:.2} ms", ms);
                 return PDC_hWnd;
             } else {

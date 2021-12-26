@@ -1,15 +1,15 @@
 use crate::common::{
     APP_NAME, BINARY_PATH, STARTUP_SHORTCUT, STARTUP_SHORTCUT_NAME, START_MENU_SHORTCUT,
 };
-use solar_screen_brightness_windows::windows::Interface;
-use solar_screen_brightness_windows::Windows::Win32::{
+use std::path::Path;
+use windows::core::Interface;
+use windows::Win32::{
     System::Com::{
         CoCreateInstance, CoInitializeEx, IPersistFile, CLSCTX_INPROC_SERVER,
         COINIT_APARTMENTTHREADED,
     },
     UI::Shell::{IShellLinkW, ShellLink},
 };
-use std::path::Path;
 
 pub fn install() -> anyhow::Result<()> {
     com_initialise()?;

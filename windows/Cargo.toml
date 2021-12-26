@@ -2,11 +2,6 @@
 name = "solar-screen-brightness-windows"
 version = "0.1.0"
 edition = "2018"
-build = "build.rs"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-windows = "0.18.0"
 
 # This is a hack to work around inability to set Target-specific features
 # https://github.com/rust-lang/cargo/issues/1197
@@ -17,7 +12,17 @@ default-features = false
 features = ["pancurses-backend"]
 git = "https://github.com/gyscos/cursive"
 rev = "73453b20976df68b58ec190b848f5d9790634662"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[dependencies.windows]
+version = "0.29.0"
+features = [
+    "std",
+    "alloc",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_System_Console",
+    "Win32_UI_WindowsAndMessaging",
+]
 
-[build-dependencies]
-windows = "0.18.0"
