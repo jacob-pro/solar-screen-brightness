@@ -7,7 +7,7 @@ build = "build.rs"
 
 [dependencies]
 anyhow = "1.0.43"
-brightness = { version = "0.3.1" }
+brightness = { git = "https://github.com/jacob-pro/brightness", rev  = "c442ea8" }
 chrono = "0.4"
 clap = "3.0.0-beta.5"
 config = "0.10.1"
