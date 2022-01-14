@@ -159,7 +159,8 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 [[package]]
 name = "brightness"
 version = "0.4.0"
-source = "git+https://github.com/jacob-pro/brightness?rev=c442ea8#c442ea8d45d98f7ae57ec228a84c4d639c65112c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e51fad75052037ee957fdfa2691afd779f83ce3bc3e4e56c5bd6da14244947e"
 dependencies = [
  "async-trait",
  "futures",
