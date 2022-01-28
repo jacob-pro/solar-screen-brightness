@@ -56,7 +56,7 @@ pub fn acquire() -> Result<Lock, Existing> {
                 );
             })
             .ok();
-            Ok(Lock { fd: fd })
+            Ok(Lock { fd })
         }
         Err(e) => {
             log::warn!(
@@ -74,10 +74,10 @@ pub struct Lock {
 
 impl Drop for Lock {
     fn drop(&mut self) {
-        self.fd.as_ref().map(|fd| {
+        if let Some(fd) = fd {
             close(*fd).ok();
             unlink(IPC_PATH.as_path()).ok();
-        });
+        }
     }
 }
 
@@ -108,7 +108,7 @@ impl ShowConsoleWatcher {
             if let Err(e) = (|| -> anyhow::Result<()> {
                 'outer: loop {
                     let fd = open(IPC_PATH.as_path(), OFlag::O_RDONLY, Mode::empty())?;
-                    let mut buffer = vec![0 as u8; 1];
+                    let mut buffer = vec![0_u8; 1];
                     loop {
                         let len = read(fd, buffer.as_mut_slice())?;
                         if len == 0 {

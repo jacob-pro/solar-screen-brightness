@@ -67,10 +67,10 @@ impl Monitor {
     }
 
     pub fn stop(&self) {
-        self.fd.as_ref().map(|fd| {
+        if let Some(fd) = self.fd.as_ref() {
             write(*fd, &[0]).ok();
             close(*fd).ok();
-        });
+        }
     }
 }
 
