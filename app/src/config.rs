@@ -63,10 +63,8 @@ impl Config {
     }
 
     pub fn save(&self) -> io::Result<()> {
-        match (|| {
-            let toml = toml::to_string(self).unwrap();
-            fs::write(CONFIG_FILE.as_path(), toml)
-        })() {
+        let toml = toml::to_string(self).unwrap();
+        match fs::write(CONFIG_FILE.as_path(), toml) {
             Ok(r) => {
                 log::info!("Successfully saved config file");
                 Ok(r)

@@ -16,8 +16,8 @@ pub struct ExistingProcess(lock_impl::Existing);
 
 pub fn acquire() -> Result<ApplicationLock, ExistingProcess> {
     lock_impl::acquire()
-        .map(|l| ApplicationLock(l))
-        .map_err(|e| ExistingProcess(e))
+        .map(ApplicationLock)
+        .map_err(ExistingProcess)
 }
 
 impl ExistingProcess {

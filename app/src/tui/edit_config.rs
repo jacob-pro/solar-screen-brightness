@@ -138,13 +138,9 @@ fn create_config(cursive: &mut Cursive) -> Result<Config, anyhow::Error> {
 }
 
 fn on_apply(cursive: &mut Cursive) {
-    let cfg = create_config(cursive);
-    match &cfg {
-        Err(e) => {
-            cursive.add_layer(Dialog::info(e.to_string()));
-        }
-        _ => {}
-    };
+    if let Err(e) = create_config(cursive) {
+        cursive.add_layer(Dialog::info(e.to_string()));
+    }
 }
 
 fn on_submit_field(cursive: &mut Cursive, _: &str) {

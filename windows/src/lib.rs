@@ -42,6 +42,8 @@ pub fn loword(l: u32) -> u32 {
 }
 
 pub trait WindowDataExtension {
+    /// # Safety
+    /// This will cast whatever value is stored in `GetWindowLongPtrW()` to a `&mut T`
     unsafe fn get_user_data<T>(&self) -> Option<&mut T>;
 }
 
@@ -56,17 +58,19 @@ impl WindowDataExtension for HWND {
 }
 
 #[inline]
-pub unsafe fn set_and_get_error<F, R>(mut f: F) -> windows::core::Result<R>
+pub fn set_and_get_error<F, R>(mut f: F) -> windows::core::Result<R>
 where
     F: FnMut() -> R,
 {
-    SetLastError(0);
-    let result = f();
-    let error = Error::from_win32();
-    if error == Error::OK {
-        Ok(result)
-    } else {
-        Err(error)
+    unsafe {
+        SetLastError(0);
+        let result = f();
+        let error = Error::from_win32();
+        if error == Error::OK {
+            Ok(result)
+        } else {
+            Err(error)
+        }
     }
 }
 

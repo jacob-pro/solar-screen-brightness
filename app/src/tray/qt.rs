@@ -86,11 +86,10 @@ pub fn run(controller: Arc<BrightnessController>, _: ApplicationLock, launch_con
         console.show();
     }
 
-    let ss3 = sync_sender.clone();
     std::thread::spawn(move || {
         QApplication::init(|_| unsafe {
             assert!(QSystemTrayIcon::is_system_tray_available());
-            let _tray = TrayApplication::new(ss3);
+            let _tray = TrayApplication::new(sync_sender);
             QApplication::exec()
         });
     });
