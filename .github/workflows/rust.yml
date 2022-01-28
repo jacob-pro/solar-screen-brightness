@@ -83,7 +83,7 @@ jobs:
 
       - if: ${{ matrix.dir != 'windows' }}
         name: Cargo Clippy Check
-        run: cargo clippy --locked -- -D warnings
+        run: cargo clippy -- -D warnings
         working-directory: ./${{ matrix.dir }}
 
       - name: Cargo Sort Check
