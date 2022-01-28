@@ -25,7 +25,7 @@ use env_logger::Env;
 use futures::executor::block_on;
 use std::sync::Arc;
 
-pub const APP_NAME: &'static str = "Solar Screen Brightness";
+pub const APP_NAME: &str = "Solar Screen Brightness";
 
 const EXIT_SUCCESS: i32 = 0;
 const EXIT_FAILURE: i32 = 1;
@@ -120,7 +120,9 @@ fn headless(args: HeadlessArgs) -> i32 {
     };
     if args.once {
         let (_res, wait) = controller::apply::apply(&config, true);
-        wait.map(|wait| log::info!("Brightness valid until: {}", wait));
+        if let Some(wait) = wait {
+            log::info!("Brightness valid until: {}", wait)
+        }
     } else {
         match lock::acquire() {
             Ok(_lock) => {
@@ -162,7 +164,7 @@ fn list_monitors() -> i32 {
             }
         }
     }
-    if devices.iter().find(|e| e.is_err()).is_some() {
+    if devices.iter().any(|e| e.is_err()) {
         EXIT_FAILURE
     } else {
         EXIT_SUCCESS

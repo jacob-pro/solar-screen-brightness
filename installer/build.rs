@@ -41,7 +41,7 @@ fn compile_and_copy_app() {
     assert!(exe.is_file());
     println!("cargo:rerun-if-changed={:?}", exe);
     let dest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("build-assets");
-    std::fs::create_dir_all(&dest).expect(&format!("Failed to create {:?}", dest));
+    std::fs::create_dir_all(&dest).unwrap_or_else(|_| panic!("Failed to create {:?}", dest));
     std::fs::copy(exe, dest.join("solar-screen-brightness")).expect("Failed to copy binary");
 }
 

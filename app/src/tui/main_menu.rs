@@ -80,7 +80,7 @@ fn on_submit(cursive: &mut Cursive, choice: &MainMenuChoice) {
             super::show_status::status_update(cursive, update);
         }
         MainMenuChoice::EditConfig => {
-            let config = ud.controller.get_config().clone();
+            let config = ud.controller.get_config();
             cursive
                 .call_on_name(MAIN_VIEW, |x: &mut HideableView<Dialog>| {
                     x.hide();

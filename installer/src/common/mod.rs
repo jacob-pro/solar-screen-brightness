@@ -13,8 +13,8 @@ use lazy_static::lazy_static;
 use std::env::consts::EXE_EXTENSION;
 use std::path::{Path, PathBuf};
 
-pub const APP_NAME: &'static str = "Solar Screen Brightness";
-pub const BINARY_NAME: &'static str = "solar-screen-brightness";
+pub const APP_NAME: &str = "Solar Screen Brightness";
+pub const BINARY_NAME: &str = "solar-screen-brightness";
 
 lazy_static! {
     pub static ref CONFIG_DIR: PathBuf = BaseDirs::new().unwrap().config_dir().join(APP_NAME);

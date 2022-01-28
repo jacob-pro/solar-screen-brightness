@@ -44,7 +44,9 @@ impl Console {
     }
 
     pub(super) fn hide(&self) {
-        self.window_data.as_ref().map(|d| d.hide());
+        if let Some(d) = self.window_data.as_ref() {
+            d.hide()
+        };
     }
 
     fn initialise(&mut self) {
@@ -63,8 +65,10 @@ impl Console {
                 SetWindowLongPtrW(data.handle, GWLP_USERDATA, data.as_mut() as *mut _ as isize)
             })
             .unwrap();
-            set_and_get_error(|| SetWindowLongPtrW(data.handle, GWL_WNDPROC, window_proc as isize))
-                .unwrap();
+            set_and_get_error(|| {
+                SetWindowLongPtrW(data.handle, GWL_WNDPROC, (window_proc as usize) as isize)
+            })
+            .unwrap();
 
             set_and_get_error(|| SetWindowTextW(data.handle, APP_NAME)).unwrap();
         }
@@ -130,10 +134,8 @@ fn await_handle() -> HWND {
             if !HANDLE(PDC_hWnd).is_invalid() {
                 log::info!("Found valid PDC_hWnd in {:.2} ms", ms);
                 return PDC_hWnd;
-            } else {
-                if ms > 50.0 {
-                    log::warn!("Have not yet found a valid PDC_hWnd after {:.2} ms", ms);
-                }
+            } else if ms > 50.0 {
+                log::warn!("Have not yet found a valid PDC_hWnd after {:.2} ms", ms);
             }
         }
     }

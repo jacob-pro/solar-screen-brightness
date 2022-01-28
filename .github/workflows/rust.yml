@@ -81,9 +81,10 @@ jobs:
         run: cargo fmt -- --check
         working-directory: ./${{ matrix.dir }}
 
-      - name: Install Cargo Sort
-        run: cargo install cargo-sort
+      - name: Cargo Clippy Check
+        run: cargo clippy --all-features --all-targets -- -D warnings
+        working-directory: ./${{ matrix.dir }}
 
       - name: Cargo Sort Check
-        run: cargo-sort --check
+        run: cargo install cargo-sort && cargo-sort --check
         working-directory: ./${{ matrix.dir }}

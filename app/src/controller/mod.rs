@@ -58,9 +58,9 @@ impl BrightnessController {
                 let mut last_result_rw = last_result.write().unwrap();
                 let delegate_r = delegate.read().unwrap();
                 *last_result_rw = res;
-                delegate_r
-                    .upgrade()
-                    .map(|d| d.did_set_last_result(&*last_result_rw));
+                if let Some(d) = delegate_r.upgrade() {
+                    d.did_set_last_result(&*last_result_rw)
+                };
             });
             *worker = Some(sender.clone());
 
@@ -132,10 +132,12 @@ impl BrightnessController {
             log::info!("Disabling dynamic brightness");
         }
         let before = std::mem::replace(&mut *enabled_rw, enabled);
-        worker_r
-            .as_ref()
-            .map(|w| w.send(worker::Message::UpdateEnabled(enabled)).unwrap());
-        delegate_r.upgrade().map(|d| d.did_set_enabled(enabled));
+        if let Some(w) = worker_r.as_ref() {
+            w.send(worker::Message::UpdateEnabled(enabled)).unwrap()
+        };
+        if let Some(d) = delegate_r.upgrade() {
+            d.did_set_enabled(enabled)
+        };
         before
     }
 
@@ -147,21 +149,21 @@ impl BrightnessController {
         let delegate_r = self.delegate.read().unwrap();
 
         let before = std::mem::replace(&mut *config_rw, config);
-        worker_r.as_ref().map(|w| {
+        if let Some(w) = worker_r.as_ref() {
             w.send(worker::Message::UpdateConfig(config_rw.clone()))
                 .unwrap()
-        });
-        delegate_r.upgrade().map(|d| d.did_set_config(&*config_rw));
+        }
+        if let Some(d) = delegate_r.upgrade() {
+            d.did_set_config(&*config_rw)
+        }
         before
     }
 
     #[allow(unused)]
     pub fn force_refresh(&self) {
-        self.worker
-            .read()
-            .unwrap()
-            .as_ref()
-            .map(|w| w.send(worker::Message::ForceRefresh).unwrap());
+        if let Some(w) = self.worker.read().unwrap().as_ref() {
+            w.send(worker::Message::ForceRefresh).unwrap()
+        }
     }
 }
 

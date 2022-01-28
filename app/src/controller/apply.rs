@@ -37,7 +37,7 @@ pub fn apply(config: &Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
     match &config.location {
         None => {
             log::warn!("Unable to compute brightness because no location has been configured");
-            return (ApplyResult::Error(ApplyError::NoLocationSet), None);
+            (ApplyResult::Error(ApplyError::NoLocationSet), None)
         }
         Some(location) => {
             let now = SystemTime::now();
@@ -48,7 +48,7 @@ pub fn apply(config: &Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
                 location.longitude,
             );
             let ssr = input.compute().unwrap();
-            let br = calculate_brightness(&config, &ssr, epoch_time_now);
+            let br = calculate_brightness(config, &ssr, epoch_time_now);
             log::info!("Computed base brightness of {}%", br.brightness);
 
             let results = SolarAndBrightnessResults {
@@ -66,8 +66,8 @@ pub fn apply(config: &Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
                 let devices_len = devices.len();
                 for dev in devices {
                     match dev {
-                        Ok(mut dev) => match block_on(dev.set(br.brightness)) {
-                            Err(e) => {
+                        Ok(mut dev) => {
+                            if let Err(e) = block_on(dev.set(br.brightness)) {
                                 log::error!(
                                     "An error occurred setting monitor brightness: {:?} for: {:?}",
                                     e,
@@ -75,8 +75,7 @@ pub fn apply(config: &Config, enabled: bool) -> (ApplyResult, Option<unix_t>) {
                                 );
                                 errors.push(e);
                             }
-                            _ => {}
-                        },
+                        }
                         Err(e) => {
                             log::error!("An error occurred getting monitors: {:?}", e);
                             errors.push(e);

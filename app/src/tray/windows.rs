@@ -42,11 +42,13 @@ pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch
     unsafe {
         // Create Window Class
         let hinstance = set_and_get_error(|| GetModuleHandleW(PWSTR::default())).unwrap();
-        let mut window_class = WNDCLASSW::default();
-        window_class.lpfnWndProc = Some(tray_window_proc);
-        window_class.hInstance = hinstance;
         let mut name = "TrayHolder".to_wide();
-        window_class.lpszClassName = PWSTR(name.as_mut_ptr());
+        let window_class = WNDCLASSW {
+            lpfnWndProc: Some(tray_window_proc),
+            hInstance: hinstance,
+            lpszClassName: PWSTR(name.as_mut_ptr()),
+            ..Default::default()
+        };
         let atom = set_and_get_error(|| RegisterClassW(&window_class)).unwrap();
 
         // Create Window
@@ -107,7 +109,7 @@ pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch
         tray_icon.uCallbackMessage = CALLBACK_MSG;
         tray_icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         tray_icon.szTip.copy_from_slice(bytes);
-        Shell_NotifyIconW(NIM_ADD, &mut tray_icon).ok().unwrap();
+        Shell_NotifyIconW(NIM_ADD, &tray_icon).ok().unwrap();
 
         if launch_console {
             window_data.console.show();
@@ -123,14 +125,14 @@ pub fn run(controller: Arc<BrightnessController>, _lock: ApplicationLock, launch
                 }
                 0 => break,
                 _ => {
-                    TranslateMessage(&mut msg);
-                    DispatchMessageW(&mut msg);
+                    TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
                 }
             }
         }
 
         // Cleanup
-        Shell_NotifyIconW(NIM_DELETE, &mut tray_icon).ok().unwrap();
+        Shell_NotifyIconW(NIM_DELETE, &tray_icon).ok().unwrap();
     }
 }
 
@@ -181,7 +183,7 @@ unsafe extern "system" fn tray_window_proc(
             _ => {}
         },
     }
-    return DefWindowProcW(hwnd, msg, w_param, l_param);
+    DefWindowProcW(hwnd, msg, w_param, l_param)
 }
 
 #[derive(Clone)]
