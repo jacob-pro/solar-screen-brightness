@@ -81,8 +81,9 @@ jobs:
         run: cargo fmt -- --check
         working-directory: ./${{ matrix.dir }}
 
-      - name: Cargo Clippy Check
-        run: cargo clippy --all-features -- -D warnings
+      - if: ${{ matrix.dir != 'windows' }}
+        name: Cargo Clippy Check
+        run: cargo clippy --locked --all-features --all-targets -- -D warnings
         working-directory: ./${{ matrix.dir }}
 
       - name: Cargo Sort Check
