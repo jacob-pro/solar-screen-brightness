@@ -74,7 +74,7 @@ pub struct Lock {
 
 impl Drop for Lock {
     fn drop(&mut self) {
-        if let Some(fd) = fd {
+        if let Some(fd) = self.fd {
             close(*fd).ok();
             unlink(IPC_PATH.as_path()).ok();
         }
