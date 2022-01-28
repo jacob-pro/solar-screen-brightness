@@ -82,7 +82,7 @@ jobs:
         working-directory: ./${{ matrix.dir }}
 
       - name: Cargo Clippy Check
-        run: cargo clippy --locked --all-features --all-targets -- -D warnings
+        run: cargo clippy --all-features -- -D warnings
         working-directory: ./${{ matrix.dir }}
 
       - name: Cargo Sort Check
