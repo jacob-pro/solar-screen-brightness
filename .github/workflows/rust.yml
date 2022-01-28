@@ -46,13 +46,26 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cargo Clippy (App)
+        run: cargo clippy -- -D warnings
+        working-directory: ./app
+
       - name: Cargo Test (App)
         run: cargo test
         working-directory: ./app
 
+      - name: Cargo Clippy (Installer)
+        run: cargo clippy -- -D warnings
+        working-directory: ./installer
+
       - name: Cargo Test (Installer)
         run: cargo test
         working-directory: ./installer
+
+      - if: ${{ matrix.os == 'windows-latest' }}
+        name: Cargo Clippy (Windows)
+        run: cargo clippy -- -D warnings
+        working-directory: ./windows
 
       - if: startsWith(github.ref, 'refs/tags/')
         name: Compile Release
@@ -79,11 +92,6 @@ jobs:
 
       - name: Cargo Format Check
         run: cargo fmt -- --check
-        working-directory: ./${{ matrix.dir }}
-
-      - if: ${{ matrix.dir != 'windows' }}
-        name: Cargo Clippy Check
-        run: cargo clippy -- -D warnings
         working-directory: ./${{ matrix.dir }}
 
       - name: Cargo Sort Check
