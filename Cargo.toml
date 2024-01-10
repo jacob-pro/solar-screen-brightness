@@ -1,0 +1,71 @@
+[package]
+name = "solar-screen-brightness"
+version = "2.0.0"
+authors = ["Jacob Halsey <jacob@jhalsey.com>"]
+edition = "2021"
+build = "build.rs"
+description = "Uitlity for automatically setting monitor brightness according to sunrise/sunset times."
+
+[[bin]]
+name = "ssb"
+path = "src/main.rs"
+
+[[bin]]
+name = "ssb-cli"
+path = "src/cli.rs"
+
+[dependencies]
+anyhow = "1.0.43"
+brightness = { version = "0.5.0", default_features = false }
+cfg-if = "1.0.0"
+chrono = "0.4"
+clap = { version = "4.3.11", features = ["derive"] }
+ctrlc = "3.4.0"
+dirs = "5.0.1"
+egui = { version = "0.22.0" }
+egui-wgpu = { version = "0.22.0", features = ["winit"] }
+egui-winit = { version = "0.22.0" }
+ellipse = "0.2.0"
+enum-iterator = "1.4.1"
+geocoding = "0.4.0"
+human-repr = "1.1.0"
+image = "0.24.7"
+itertools = "0.11.0"
+log = "0.4.14"
+maplit = "1.0.2"
+png = "0.17.10"
+pollster = "0.3.0"
+serde = { version = "1.0.110", features = ["derive"] }
+serde_json = "1.0.104"
+simplelog = "0.12.1"
+sunrise-sunset-calculator = "1.0.1"
+tempfile = "3.7.0"
+thiserror = "1.0"
+tray-icon = "0.11.1"
+validator = { version = "0.16.1", features = ["derive"] }
+wildmatch = "2.1.1"
+
+[target.'cfg(windows)'.dependencies]
+win32-utils = { git = "https://github.com/jacob-pro/win32-utils", features = ["window", "instance"], rev = "12cb15c0c2d249ff0de6e0249466dbff20448871" }
+console = "0.15.7"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.52.0"
+features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_LibraryLoader",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Console",
+    "Win32_System_RemoteDesktop"
+]
+
+[target.'cfg(unix)'.dependencies]
+nix = "0.22.1"
+
+[target.'cfg(target_os="linux")'.dependencies]
+udev = "0.7.0"
+gtk = "0.18"
+
+[build-dependencies]
+winres = "0.1"
