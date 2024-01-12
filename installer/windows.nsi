@@ -5,6 +5,7 @@ Unicode True
 !include "MUI2.nsh"
 !include "nsProcess.nsh"
 
+RequestExecutionLevel user
 OutFile "ssb-installer.exe"
 Name "Solar Screen Brightness"
 InstallDir "$LocalAppdata\solar-screen-brightness"
