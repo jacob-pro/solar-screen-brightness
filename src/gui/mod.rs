@@ -2,6 +2,7 @@ pub mod app;
 mod brightness_settings;
 mod help;
 mod location_settings;
+mod monitor_overrides;
 mod status;
 
 use crate::common::APP_NAME;

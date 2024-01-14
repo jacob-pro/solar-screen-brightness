@@ -2237,12 +2237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "maplit"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
-
-[[package]]
 name = "memchr"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3404,7 +3398,7 @@ dependencies = [
 
 [[package]]
 name = "solar-screen-brightness"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "anyhow",
  "brightness",
@@ -3425,7 +3419,6 @@ dependencies = [
  "image",
  "itertools 0.11.0",
  "log",
- "maplit",
  "nix 0.22.3",
  "png",
  "pollster",

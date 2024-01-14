@@ -1,6 +1,8 @@
 use crate::config::{Location, SsbConfig};
 use crate::controller::Message;
-use crate::gui::app::{AppState, MessageModal, Modal, Page, SPACING};
+use crate::gui::app::{
+    save_config, set_red_widget_border, AppState, MessageModal, Modal, Page, SPACING,
+};
 use crate::gui::UserEvent;
 use egui::{Context, Widget};
 use geocoding::{Forward, GeocodingError, Openstreetmap};
@@ -99,25 +101,11 @@ impl Page for LocationSettingsPage {
             self.copy_to_config(&mut config);
             app_state
                 .controller
-                .send(Message::Refresh("Setting change"))
+                .send(Message::Refresh("Location change"))
                 .unwrap();
-            if let Err(e) = config.save() {
-                log::error!("Unable to save config: {:#}", e);
-                app_state.transitions.queue_state_transition(move |app| {
-                    app.modal = Some(Box::new(MessageModal {
-                        title: "Error".to_string(),
-                        message: format!("Unable to save config: {}", e),
-                    }));
-                });
-            }
+            save_config(&mut config, &app_state.transitions);
         }
     }
-}
-
-fn set_red_widget_border(ui: &mut egui::Ui) {
-    ui.style_mut().visuals.widgets.inactive.bg_stroke.color = egui::Color32::RED;
-    ui.style_mut().visuals.widgets.inactive.bg_stroke.width = 1.0;
-    ui.style_mut().visuals.widgets.hovered.bg_stroke.color = egui::Color32::RED;
 }
 
 fn coord_to_string(coord: f64) -> String {

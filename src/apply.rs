@@ -1,9 +1,9 @@
 use crate::calculator::calculate_brightness;
-use crate::config::{BrightnessValues, Location, MonitorOverride};
+use crate::config::{BrightnessValues, Location, MonitorOverride, MonitorProperty};
 use brightness::blocking::{Brightness, BrightnessDevice};
-use maplit::btreemap;
+use itertools::Itertools;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sunrise_sunset_calculator::SunriseSunsetParameters;
 use wildmatch::WildMatch;
@@ -34,10 +34,20 @@ impl From<sunrise_sunset_calculator::SunriseSunsetResult> for SunriseSunsetResul
 
 #[derive(Debug, Serialize)]
 pub struct MonitorResult {
-    pub device_name: String,
-    pub properties: BTreeMap<&'static str, String>,
+    pub properties: MonitorProperties,
     pub brightness: Option<BrightnessDetails>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MonitorProperties {
+    pub device_name: String,
+    #[cfg(windows)]
+    pub device_description: String,
+    #[cfg(windows)]
+    pub device_key: String,
+    #[cfg(windows)]
+    pub device_path: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -50,7 +60,7 @@ pub struct BrightnessDetails {
 
 pub struct MonitorOverrideCompiled {
     pub pattern: WildMatch,
-    pub key: String,
+    pub key: MonitorProperty,
     pub brightness: Option<BrightnessValues>,
 }
 
@@ -58,8 +68,8 @@ impl From<&MonitorOverride> for MonitorOverrideCompiled {
     fn from(value: &MonitorOverride) -> Self {
         Self {
             pattern: WildMatch::new(&value.pattern),
-            key: value.key.clone(),
-            brightness: value.brightness.clone(),
+            key: value.key,
+            brightness: value.brightness,
         }
     }
 }
@@ -67,10 +77,11 @@ impl From<&MonitorOverride> for MonitorOverrideCompiled {
 /// Find the first override that matches this monitor's properties
 fn match_monitor<'o>(
     overrides: &'o [MonitorOverrideCompiled],
-    monitor: &BTreeMap<&'static str, String>,
+    monitor: &MonitorProperties,
 ) -> Option<&'o MonitorOverrideCompiled> {
+    let map = monitor.to_map();
     for o in overrides {
-        if let Some(value) = monitor.get(o.key.as_str()) {
+        if let Some(value) = map.get(&o.key) {
             if o.pattern.matches(value) {
                 return Some(o);
             }
@@ -108,14 +119,13 @@ pub fn apply_brightness(
     let monitor_results = monitors
         .into_iter()
         .map(|m| {
-            let device_name = m.device_name().unwrap_or_default();
-            let properties = get_properties(&m).unwrap_or_default();
+            let properties = MonitorProperties::from_device(&m);
             let monitor_values = match match_monitor(&overrides, &properties) {
                 None => Some(BrightnessValues {
                     brightness_day,
                     brightness_night,
                 }),
-                Some(o) => o.brightness.clone(),
+                Some(o) => o.brightness,
             };
 
             if let Some(BrightnessValues {
@@ -132,7 +142,7 @@ pub fn apply_brightness(
                 );
                 log::debug!(
                     "Computed brightness for '{}' = {:?} (day={}) (night={})",
-                    device_name,
+                    properties.device_name,
                     brightness,
                     brightness_day,
                     brightness_night
@@ -140,17 +150,20 @@ pub fn apply_brightness(
 
                 let error = m.set(brightness.brightness).err();
                 if let Some(err) = error.as_ref() {
-                    log::error!("Failed to set brightness for '{}': {:?}", device_name, err);
+                    log::error!(
+                        "Failed to set brightness for '{}': {:?}",
+                        properties.device_name,
+                        err
+                    );
                 } else {
                     log::info!(
                         "Successfully set brightness for '{}' to {}%",
-                        device_name,
+                        properties.device_name,
                         brightness.brightness
                     );
                 }
 
                 MonitorResult {
-                    device_name,
                     properties,
                     brightness: Some(BrightnessDetails {
                         expiry_time: brightness.expiry_time,
@@ -161,15 +174,18 @@ pub fn apply_brightness(
                     error: error.map(|e| e.to_string()),
                 }
             } else {
-                log::info!("Skipping '{}' due to monitor override", device_name,);
+                log::info!(
+                    "Skipping '{}' due to monitor override",
+                    properties.device_name
+                );
                 MonitorResult {
-                    device_name,
                     properties,
                     brightness: None,
                     error: None,
                 }
             }
         })
+        .sorted_by_key(|m| m.properties.device_name.clone())
         .collect::<Vec<_>>();
 
     ApplyResults {
@@ -179,24 +195,30 @@ pub fn apply_brightness(
     }
 }
 
-#[cfg(windows)]
-pub fn get_properties(
-    device: &BrightnessDevice,
-) -> Result<BTreeMap<&'static str, String>, brightness::Error> {
-    use brightness::blocking::windows::BrightnessExt;
-    Ok(btreemap! {
-        "device_name" => device.device_name()?,
-        "device_description" => device.device_description()?,
-        "device_key" => device.device_registry_key()?,
-        "device_path" => device.device_path()?,
-    })
-}
+impl MonitorProperties {
+    fn from_device(device: &BrightnessDevice) -> Self {
+        #[cfg(windows)]
+        use brightness::blocking::windows::BrightnessExt;
+        Self {
+            device_name: device.device_name().unwrap(),
+            #[cfg(windows)]
+            device_description: device.device_description().unwrap(),
+            #[cfg(windows)]
+            device_key: device.device_registry_key().unwrap(),
+            #[cfg(windows)]
+            device_path: device.device_path().unwrap(),
+        }
+    }
 
-#[cfg(target_os = "linux")]
-pub fn get_properties(
-    device: &BrightnessDevice,
-) -> Result<BTreeMap<&'static str, String>, brightness::Error> {
-    Ok(btreemap! {
-        "device_name" => device.device_name()?,
-    })
+    pub fn to_map(&self) -> HashMap<MonitorProperty, &str> {
+        let mut map = HashMap::<_, &str>::new();
+        map.insert(MonitorProperty::DeviceName, &self.device_name);
+        #[cfg(windows)]
+        {
+            map.insert(MonitorProperty::DeviceDescription, &self.device_description);
+            map.insert(MonitorProperty::DeviceKey, &self.device_key);
+            map.insert(MonitorProperty::DevicePath, &self.device_path);
+        }
+        map
+    }
 }
