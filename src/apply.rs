@@ -69,7 +69,7 @@ impl From<&MonitorOverride> for MonitorOverrideCompiled {
         Self {
             pattern: WildMatch::new(&value.pattern),
             key: value.key,
-            brightness: value.brightness.clone(),
+            brightness: value.brightness,
         }
     }
 }
@@ -125,7 +125,7 @@ pub fn apply_brightness(
                     brightness_day,
                     brightness_night,
                 }),
-                Some(o) => o.brightness.clone(),
+                Some(o) => o.brightness,
             };
 
             if let Some(BrightnessValues {

@@ -49,10 +49,10 @@ pub enum MonitorProperty {
 impl MonitorProperty {
     pub fn as_str(&self) -> &'static str {
         match self {
-            MonitorProperty::DeviceName => "Device Name",
-            MonitorProperty::DeviceDescription => "Device Description",
-            MonitorProperty::DeviceKey => "Device Key",
-            MonitorProperty::DevicePath => "Device Path",
+            MonitorProperty::DeviceName => "Name",
+            MonitorProperty::DeviceDescription => "Description",
+            MonitorProperty::DeviceKey => "Key",
+            MonitorProperty::DevicePath => "Path",
         }
     }
 }
@@ -65,7 +65,7 @@ pub struct MonitorOverride {
     pub brightness: Option<BrightnessValues>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate, Clone)]
+#[derive(Debug, Serialize, Deserialize, Validate, Copy, Clone)]
 pub struct BrightnessValues {
     #[validate(range(max = 100))]
     pub brightness_day: u32,

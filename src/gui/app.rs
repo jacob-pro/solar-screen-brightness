@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, RwLock};
 pub const SPACING: f32 = 10.0;
 
 pub trait Page {
-    fn render(&mut self, ui: &mut egui::Ui, context: &mut AppState);
+    fn render(&mut self, ui: &mut egui::Ui, app_state: &mut AppState);
 }
 
 pub struct SsbEguiApp {
@@ -233,4 +233,10 @@ impl SsbEguiApp {
             }
         });
     }
+}
+
+pub fn set_red_widget_border(ui: &mut egui::Ui) {
+    ui.style_mut().visuals.widgets.inactive.bg_stroke.color = egui::Color32::RED;
+    ui.style_mut().visuals.widgets.inactive.bg_stroke.width = 1.0;
+    ui.style_mut().visuals.widgets.hovered.bg_stroke.color = egui::Color32::RED;
 }

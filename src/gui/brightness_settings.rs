@@ -52,7 +52,7 @@ impl Page for BrightnessSettingsPage {
                 self.copy_to_config(&mut config);
                 app_state
                     .controller
-                    .send(Message::Refresh("Setting change"))
+                    .send(Message::Refresh("Brightness change"))
                     .unwrap();
             }
             if ui.button("Save").clicked() {
@@ -60,7 +60,7 @@ impl Page for BrightnessSettingsPage {
                 self.copy_to_config(&mut config);
                 app_state
                     .controller
-                    .send(Message::Refresh("Setting change"))
+                    .send(Message::Refresh("Brightness change"))
                     .unwrap();
                 if let Err(e) = config.save() {
                     log::error!("Unable to save config: {:#}", e);
