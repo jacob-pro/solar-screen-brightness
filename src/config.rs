@@ -50,8 +50,11 @@ impl MonitorProperty {
     pub fn as_str(&self) -> &'static str {
         match self {
             MonitorProperty::DeviceName => "Name",
+            #[cfg(windows)]
             MonitorProperty::DeviceDescription => "Description",
+            #[cfg(windows)]
             MonitorProperty::DeviceKey => "Key",
+            #[cfg(windows)]
             MonitorProperty::DevicePath => "Path",
         }
     }

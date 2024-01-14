@@ -1,6 +1,6 @@
 use crate::config::SsbConfig;
 use crate::controller::Message;
-use crate::gui::app::{AppState, MessageModal, Page, SPACING};
+use crate::gui::app::{save_config, AppState, Page, SPACING};
 use validator::Validate;
 
 pub struct BrightnessSettingsPage {
@@ -62,15 +62,7 @@ impl Page for BrightnessSettingsPage {
                     .controller
                     .send(Message::Refresh("Brightness change"))
                     .unwrap();
-                if let Err(e) = config.save() {
-                    log::error!("Unable to save config: {:#}", e);
-                    app_state.transitions.queue_state_transition(move |app| {
-                        app.modal = Some(Box::new(MessageModal {
-                            title: "Error".to_string(),
-                            message: format!("Unable to save config: {}", e),
-                        }));
-                    });
-                }
+                save_config(&mut config, &app_state.transitions);
             };
         });
     }

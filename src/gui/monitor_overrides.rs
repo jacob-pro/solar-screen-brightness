@@ -1,7 +1,8 @@
 use crate::apply::ApplyResults;
 use crate::config::{BrightnessValues, MonitorOverride, MonitorProperty, SsbConfig};
 use crate::controller::Message;
-use crate::gui::app::{set_red_widget_border, AppState, Page, SPACING};
+use crate::gui::app::{save_config, set_red_widget_border, AppState, Page, SPACING};
+use crate::gui::status::no_devices_found;
 use ellipse::Ellipse;
 
 const MAX_OVERRIDES: usize = 10;
@@ -75,13 +76,14 @@ impl MonitorOverridePage {
     }
 
     fn render_monitors(&mut self, ui: &mut egui::Ui, results: &ApplyResults) {
-        ui.label(egui::RichText::new("Devices").size(14.0));
+        ui.label(egui::RichText::new("Monitor Properties").size(14.0));
         ui.add_space(SPACING);
 
         if results.monitors.is_empty() {
-            ui.label(egui::RichText::new("No devices found").color(egui::Color32::RED));
+            ui.add(no_devices_found());
             return;
         }
+
         let properties = enum_iterator::all::<MonitorProperty>().collect::<Vec<_>>();
 
         egui::ScrollArea::horizontal().show(ui, |ui| {
@@ -131,12 +133,12 @@ impl MonitorOverridePage {
         if !self.overrides.is_empty() {
             egui::Grid::new("overrides_grid")
                 .striped(true)
-                .num_columns(7)
+                .num_columns(8)
                 .min_col_width(0.0)
                 .show(ui, |ui| {
                     ui.label("");
                     ui.label("");
-                    ui.label("Key");
+                    ui.label("Property");
                     ui.label("Pattern")
                         .on_hover_text("You can use * as a wildcard match");
                     ui.label("Disable")
@@ -184,8 +186,8 @@ impl MonitorOverridePage {
                         ui.add(egui::Checkbox::without_text(&mut o.disable));
 
                         if o.disable {
-                            ui.label("");
-                            ui.label("");
+                            ui.label("N/A");
+                            ui.label("N/A");
                         } else {
                             ui.add(
                                 egui::DragValue::new(&mut o.day)
@@ -236,6 +238,7 @@ impl MonitorOverridePage {
                     .controller
                     .send(Message::Refresh("Override change"))
                     .unwrap();
+                save_config(&mut config, &app_state.transitions);
             }
         });
 
