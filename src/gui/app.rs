@@ -4,6 +4,7 @@ use crate::controller::Message;
 use crate::gui::brightness_settings::BrightnessSettingsPage;
 use crate::gui::help::HelpPage;
 use crate::gui::location_settings::LocationSettingsPage;
+use crate::gui::monitor_overrides::MonitorOverridePage;
 use crate::gui::status::StatusPage;
 use crate::gui::UserEvent;
 use egui::{Align, Color32, Layout, ScrollArea};
@@ -24,6 +25,7 @@ pub struct SsbEguiApp {
     brightness_settings_page: BrightnessSettingsPage,
     pub location_settings_page: LocationSettingsPage,
     help_page: HelpPage,
+    monitor_override_page: MonitorOverridePage,
     context: AppState,
     pub modal: Option<Box<dyn Modal>>,
 }
@@ -55,6 +57,7 @@ enum PageId {
     Status,
     BrightnessSettings,
     LocationSettings,
+    MonitorOverrides,
     Help,
 }
 
@@ -65,6 +68,7 @@ impl PageId {
             PageId::BrightnessSettings => "Brightness Settings",
             PageId::LocationSettings => "Location Settings",
             PageId::Help => "Help",
+            PageId::MonitorOverrides => "Monitor Overrides",
         }
     }
 
@@ -74,6 +78,7 @@ impl PageId {
             PageId::BrightnessSettings => "🔅",
             PageId::LocationSettings => "🌐",
             PageId::Help => "❔",
+            PageId::MonitorOverrides => "💻",
         }
     }
 }
@@ -143,6 +148,7 @@ impl SsbEguiApp {
             selected_page: PageId::Status,
             brightness_settings_page: BrightnessSettingsPage::from_config(&config_read),
             location_settings_page: LocationSettingsPage::from_config(&config_read),
+            monitor_override_page: MonitorOverridePage::from_config(&config_read),
             modal: None,
             context: AppState {
                 main_loop,
@@ -221,6 +227,9 @@ impl SsbEguiApp {
                     self.location_settings_page.render(ui, &mut self.context)
                 }
                 PageId::Help => self.help_page.render(ui, &mut self.context),
+                PageId::MonitorOverrides => {
+                    self.monitor_override_page.render(ui, &mut self.context)
+                }
             }
         });
     }

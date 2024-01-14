@@ -1,7 +1,7 @@
 //! SSB Config file definition
-
 use crate::common::config_directory;
 use anyhow::Context;
+use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
@@ -34,10 +34,33 @@ pub struct SsbConfig {
     pub overrides: Vec<MonitorOverride>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, Eq, Hash, PartialEq, Sequence)]
+#[serde(rename_all = "snake_case")]
+pub enum MonitorProperty {
+    DeviceName,
+    #[cfg(windows)]
+    DeviceDescription,
+    #[cfg(windows)]
+    DeviceKey,
+    #[cfg(windows)]
+    DevicePath,
+}
+
+impl MonitorProperty {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MonitorProperty::DeviceName => "Device Name",
+            MonitorProperty::DeviceDescription => "Device Description",
+            MonitorProperty::DeviceKey => "Device Key",
+            MonitorProperty::DevicePath => "Device Path",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct MonitorOverride {
     pub pattern: String,
-    pub key: String,
+    pub key: MonitorProperty,
     #[validate]
     pub brightness: Option<BrightnessValues>,
 }

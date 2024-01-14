@@ -1,7 +1,6 @@
 use crate::apply::ApplyResults;
 use crate::gui::app::{AppState, Page, SPACING};
 use chrono::{Local, TimeZone};
-use itertools::Itertools;
 
 pub struct StatusPage;
 
@@ -77,45 +76,41 @@ fn display_apply_results(results: &ApplyResults, ui: &mut egui::Ui) {
                     .on_hover_text("Time that the brightness will be changed");
                 ui.end_row();
 
-                results
-                    .monitors
-                    .iter()
-                    .sorted_by_key(|m| &m.device_name)
-                    .for_each(|monitor| {
-                        ui.label(&monitor.device_name);
-                        if let Some(brightness) = &monitor.brightness {
-                            ui.label(format!("{}%", brightness.brightness_day));
-                            ui.label(format!("{}%", brightness.brightness_night));
-                            ui.label(format!("{}%", brightness.brightness));
+                results.monitors.iter().for_each(|monitor| {
+                    ui.label(&monitor.properties.device_name);
+                    if let Some(brightness) = &monitor.brightness {
+                        ui.label(format!("{}%", brightness.brightness_day));
+                        ui.label(format!("{}%", brightness.brightness_night));
+                        ui.label(format!("{}%", brightness.brightness));
 
-                            match &monitor.error {
-                                None => ui
-                                    .label("Ok")
-                                    .on_hover_text("Brightness was applied successfully"),
-                                Some(e) => ui
-                                    .label(egui::RichText::new("Error").color(egui::Color32::RED))
-                                    .on_hover_text(e),
-                            };
+                        match &monitor.error {
+                            None => ui
+                                .label("Ok")
+                                .on_hover_text("Brightness was applied successfully"),
+                            Some(e) => ui
+                                .label(egui::RichText::new("Error").color(egui::Color32::RED))
+                                .on_hover_text(e),
+                        };
 
-                            match brightness.expiry_time {
-                                None => ui.label("Never"),
-                                Some(expiry_time) => {
-                                    let changes_at = Local.timestamp_opt(expiry_time, 0).unwrap();
-                                    ui.label(changes_at.format("%H:%M %P").to_string())
-                                        .on_hover_text(changes_at.format("%b %d").to_string())
-                                }
-                            };
-                        } else {
-                            (0..3).for_each(|_| {
-                                ui.label("N/A");
-                            });
-                            ui.label("Disabled").on_hover_text(
-                                "Dynamic brightness is disabled due to a monitor override",
-                            );
-                            ui.label("Never");
-                        }
-                        ui.end_row();
-                    });
+                        match brightness.expiry_time {
+                            None => ui.label("Never"),
+                            Some(expiry_time) => {
+                                let changes_at = Local.timestamp_opt(expiry_time, 0).unwrap();
+                                ui.label(changes_at.format("%H:%M %P").to_string())
+                                    .on_hover_text(changes_at.format("%b %d").to_string())
+                            }
+                        };
+                    } else {
+                        (0..3).for_each(|_| {
+                            ui.label("N/A");
+                        });
+                        ui.label("Disabled").on_hover_text(
+                            "Dynamic brightness is disabled due to a monitor override",
+                        );
+                        ui.label("Never");
+                    }
+                    ui.end_row();
+                });
             });
     }
 }
