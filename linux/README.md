@@ -1,5 +1,15 @@
 # Linux Guide
 
+## Installation
+
+For Ubuntu you can use the [installation script](./ubuntu_install.sh):
+
+```bash
+curl -sSf https://github.com/jacob-pro/solar-screen-brightness/raw/master/linux/ubuntu_install.sh?raw=true | bash -s install
+```
+
+## External Monitor Support
+
 Internally `solar-screen-brightness` uses the [`brightness` crate](https://github.com/stephaneyfx/brightness).
 
 On Linux, the `brightness` crate interacts with devices found at `/sys/class/backlight`.
@@ -7,7 +17,7 @@ On Linux, the `brightness` crate interacts with devices found at `/sys/class/bac
 The [ddcci-backlight](https://gitlab.com/ddcci-driver-linux/ddcci-driver-linux) 
 kernel driver is required to expose external monitors as backlight devices (via DDC/CI).
 
-## Installing the Driver
+### Installing the Driver
 
 On Ubuntu-like distributions you should be able to use APT to install:
 
@@ -39,7 +49,7 @@ sudo make unload
 modprobe ddcci-backlight dyndbg
 ```
 
-## Backlight Permissions
+### Backlight Permissions
 
 If you have `systemd`
 [version 243 or later](https://github.com/systemd/systemd/blob/877aa0bdcc2900712b02dac90856f181b93c4e40/NEWS#L262), 
@@ -57,7 +67,7 @@ RUN+="/bin/bash -c '/bin/chmod g+w /sys/class/backlight/*/brightness'"
 
 `usermod -a -G video $USER` (requires logging out to take effect)
 
-## Known Issues
+### Known Issues
 
 - [Monitors connected via a USB-C dock, on Intel devices, require updating to the Linux Kernel 5.10 for DDC/CI to work](https://gitlab.freedesktop.org/drm/intel/-/issues/37).
 - [Hot swapping monitors is not yet supported, you need to reload the kernel module](https://gitlab.com/ddcci-driver-linux/ddcci-driver-linux/-/issues/5)

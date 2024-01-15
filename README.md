@@ -35,7 +35,7 @@ This changes the screen brightness via monitor control APIs, whereas those utili
 For Windows, you can download pre-compiled binaries from 
 [Releases](https://github.com/jacob-pro/solar-screen-brightness/releases).
 
-If you are using Linux, please read the [Linux Guide](docs/LINUX_GUIDE.md)
+If you are using Linux, please read the [Linux Guide](linux/README.md)
 
 There is also a CLI only version of the application available.
 
