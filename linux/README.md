@@ -5,7 +5,7 @@
 For Ubuntu you can use the [installation script](./ubuntu_install.sh):
 
 ```bash
-curl -sSf https://github.com/jacob-pro/solar-screen-brightness/raw/master/linux/ubuntu_install.sh?raw=true | bash -s install
+curl -sSLf https://github.com/jacob-pro/solar-screen-brightness/raw/master/linux/ubuntu_install.sh?raw=true | bash -s install
 ```
 
 ## External Monitor Support
