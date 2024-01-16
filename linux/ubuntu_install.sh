@@ -54,7 +54,7 @@ function install() {
 
   # Quotes https://askubuntu.com/a/1023258
   echo "Creating desktop entry ${DESKTOP_ENTRY}"
-  cat <<EOT >> ${DESKTOP_ENTRY}
+  cat <<EOT > ${DESKTOP_ENTRY}
 [Desktop Entry]
 Type=Application
 Name=Solar Screen Brightness
@@ -65,7 +65,7 @@ EOT
 
   echo "Creating autostart entry ${AUTOSTART_ENTRY}"
   mkdir -p ${AUTOSTART_DIR}
-  cat <<EOT >> ${AUTOSTART_ENTRY}
+  cat <<EOT > ${AUTOSTART_ENTRY}
 [Desktop Entry]
 Type=Application
 Name=Solar Screen Brightness
