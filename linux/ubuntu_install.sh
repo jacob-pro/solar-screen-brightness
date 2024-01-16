@@ -69,7 +69,7 @@ EOT
 [Desktop Entry]
 Type=Application
 Name=Solar Screen Brightness
-Exec="${SSB_BINARY} --minimised"
+Exec="${SSB_BINARY}" --minimised
 Icon=${ICON_PATH}
 Terminal=false
 EOT
