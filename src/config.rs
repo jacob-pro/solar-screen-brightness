@@ -11,7 +11,7 @@ use validator::Validate;
 
 const CONFIG_FILE_NAME: &str = "config.json";
 
-#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
+#[derive(Debug, Deserialize, Serialize, Validate, Clone, Copy, PartialEq)]
 pub struct Location {
     #[validate(range(min = -90, max = 90))]
     pub latitude: f64,

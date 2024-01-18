@@ -101,8 +101,10 @@ pub fn apply_brightness(
         .iter()
         .map(MonitorOverrideCompiled::from)
         .collect::<Vec<_>>();
-    let now = SystemTime::now();
-    let epoch_time_now = now.duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+    let epoch_time_now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
     let sun = SunriseSunsetParameters::new(epoch_time_now, location.latitude, location.longitude)
         .calculate()
         .unwrap();
