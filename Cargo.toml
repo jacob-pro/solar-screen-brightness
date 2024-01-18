@@ -1,6 +1,6 @@
 [package]
 name = "solar-screen-brightness"
-version = "2.1.0"
+version = "2.2.0"
 authors = ["Jacob Halsey <jacob@jhalsey.com>"]
 edition = "2021"
 build = "build.rs"
@@ -32,6 +32,7 @@ human-repr = "1.1.0"
 image = "0.24.7"
 itertools = "0.11.0"
 log = "0.4.14"
+num = "0.4.1"
 png = "0.17.10"
 pollster = "0.3.0"
 serde = { version = "1.0.110", features = ["derive"] }

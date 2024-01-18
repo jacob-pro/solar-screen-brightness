@@ -2,7 +2,7 @@
 
 [![Build status](https://github.com/jacob-pro/solar-screen-brightness/actions/workflows/rust.yml/badge.svg)](https://github.com/jacob-pro/solar-screen-brightness/actions)
 
-Varies screen brightness according to sunrise/sunset times.
+Automatically and smoothly adjusts monitor brightness based on the sunrise/sunset times at your location.
 
 > #### New 2.0 Release! 
 > 
@@ -19,25 +19,25 @@ automatically adjust screen brightness.
 
 This changes the screen brightness via monitor control APIs, whereas those utilities vary the colour temperature.
 
+### How to Install
+
+For Windows, you can download pre-compiled binaries from
+[Releases](https://github.com/jacob-pro/solar-screen-brightness/releases).
+
+If you are using Linux, please read the [Linux Guide](linux/README.md)
+
+There is also a CLI only version of the application available.
+
 ### How to Use
 
 1. An icon will appear in your tray when it is running.
-2. Click on the icon to launch the console window.
+2. Click on the icon to open the settings menu.
 3. Use the menus to set:
     - Daytime and Nighttime brightness percentages.
     - Transition time (the time it takes to switch between the two brightness values at either sunset or sunrise).
     - Your location (either manually enter coordinates, or using the search tool).
 4. Click save and this configuration will be applied and persisted to disk.
 5. You can close the window, and it will continue to update your brightness in the background.
-
-### How to Install
-
-For Windows, you can download pre-compiled binaries from 
-[Releases](https://github.com/jacob-pro/solar-screen-brightness/releases).
-
-If you are using Linux, please read the [Linux Guide](linux/README.md)
-
-There is also a CLI only version of the application available.
 
 ## Screenshots
 
