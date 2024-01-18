@@ -21,7 +21,7 @@ impl Page for StatusPage {
 }
 
 fn display_apply_results(results: &ApplyResults, ui: &mut egui::Ui) {
-    let date_format = "%H:%M %P (%b %d)";
+    let date_format = "%I:%M %P (%b %d)";
     let sunrise = Local
         .timestamp_opt(results.sun.rise, 0)
         .unwrap()

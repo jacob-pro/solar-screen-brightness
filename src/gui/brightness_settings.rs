@@ -2,7 +2,8 @@ use crate::calculator::calculate_brightness;
 use crate::config::{Location, SsbConfig};
 use crate::controller::Message;
 use crate::gui::app::{save_config, AppState, Page, SPACING};
-use egui::plot::{uniform_grid_spacer, Line, PlotBounds};
+use chrono::{Duration, DurationRound, TimeZone};
+use egui::plot::{uniform_grid_spacer, GridInput, GridMark, Line, PlotBounds};
 use egui::widgets::plot::Plot;
 use std::mem::take;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -112,6 +113,8 @@ impl Page for BrightnessSettingsPage {
     }
 }
 
+const LINE_NAME: &str = "Brightness";
+
 impl BrightnessSettingsPage {
     fn render_plot(&mut self, ui: &mut egui::Ui, app_state: &mut AppState) {
         let config = app_state.config.read().unwrap();
@@ -135,18 +138,66 @@ impl BrightnessSettingsPage {
         }
 
         if let Some(plot) = &self.plot {
+            ui.separator();
+            ui.add_space(SPACING);
+
             let first = plot.points.first().unwrap()[0];
             let last = plot.points.last().unwrap()[0];
-            let line = Line::new(plot.points.clone());
+            let line = Line::new(plot.points.clone())
+                .name(LINE_NAME)
+                .highlight(true);
+
             Plot::new("brightness_curve")
+                .allow_drag(false)
+                .allow_zoom(false)
+                .allow_scroll(false)
                 .y_grid_spacer(uniform_grid_spacer(|_| [100.0, 20.0, 10.0]))
                 .y_axis_formatter(|val, _| format!("{}%", val))
+                .x_grid_spacer(x_grid_spacer)
+                .label_formatter(|name, point| {
+                    if name == LINE_NAME {
+                        format!("{}\nBrightness {}%", convert_time(point.x), point.y)
+                    } else {
+                        String::new()
+                    }
+                })
+                .x_axis_formatter(|val, _| convert_time(val))
                 .show(ui, |plot_ui| {
                     plot_ui.set_plot_bounds(PlotBounds::from_min_max([first, -5.0], [last, 105.0]));
                     plot_ui.line(line)
                 });
         }
     }
+}
+
+fn convert_time(time: f64) -> String {
+    let time = chrono::Local.timestamp_opt(time as i64, 0).unwrap();
+    time.format("%I:%M %P").to_string()
+}
+
+const HOURS: i64 = 6;
+
+// spaces the x-axis hourly
+fn x_grid_spacer(input: GridInput) -> Vec<GridMark> {
+    let min_unix = input.bounds.0 as i64;
+    let max_unix = input.bounds.1 as i64;
+    let min_local = chrono::Local.timestamp_opt(min_unix, 0).unwrap();
+    let lowest_whole_hour = min_local.duration_trunc(Duration::hours(HOURS)).unwrap();
+
+    let mut output = Vec::new();
+    let hours_unix = HOURS * 3600;
+
+    let mut rounded_unix = lowest_whole_hour.timestamp();
+    while rounded_unix < max_unix {
+        if rounded_unix >= min_unix {
+            output.push(GridMark {
+                value: rounded_unix as f64,
+                step_size: hours_unix as f64,
+            });
+        }
+        rounded_unix += hours_unix;
+    }
+    output
 }
 
 fn generate_plot_data(
@@ -159,19 +210,20 @@ fn generate_plot_data(
     let timer_start = Instant::now();
 
     let now = SystemTime::now();
-    let mut graph_start = (now - chrono::Duration::hours(2).to_std().unwrap())
+    let graph_start = (now - Duration::hours(2).to_std().unwrap())
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64;
-    let graph_end = (now + chrono::Duration::hours(22).to_std().unwrap())
+    let graph_end = (now + Duration::hours(22).to_std().unwrap())
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64;
 
     let mut points = Vec::new();
+    let mut current = graph_start;
 
-    while graph_start <= graph_end {
-        let sun = SunriseSunsetParameters::new(graph_start, location.latitude, location.longitude)
+    while current <= graph_end {
+        let sun = SunriseSunsetParameters::new(current, location.latitude, location.longitude)
             .calculate()
             .unwrap();
         let brightness = calculate_brightness(
@@ -179,21 +231,32 @@ fn generate_plot_data(
             brightness_night,
             transition_mins,
             &sun,
-            graph_start,
+            current,
         );
-        points.push([graph_start as f64, brightness.brightness as f64]);
-        if graph_start == graph_end {
+        let next_time = brightness.expiry_time.unwrap_or(graph_end).min(graph_end);
+
+        // Add some extra points in the "flat" zone to allow cursor to snap to the line
+        // This is a bit of a hack, assuming if expiry is greater than 30 minutes,
+        // to be completely accurate we would need to look ahead at the next calculation.
+        if brightness.expiry_time.unwrap_or(i64::MAX) - current > 1800 {
+            for second in num::range_step(current, next_time, 240) {
+                points.push([second as f64, brightness.brightness as f64]);
+            }
+        } else {
+            points.push([current as f64, brightness.brightness as f64]);
+        }
+
+        if current == graph_end {
             break;
         }
-        let expiry = brightness.expiry_time.unwrap_or(graph_end);
-        if expiry > graph_end {
-            graph_start = graph_end;
-        } else {
-            graph_start = expiry;
-        }
+        current = next_time;
     }
 
-    log::debug!("Plot took {:?}", timer_start.elapsed());
+    log::debug!(
+        "Plot took {:?} {} points",
+        timer_start.elapsed(),
+        points.len()
+    );
 
     PlotData {
         points,

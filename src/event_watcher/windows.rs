@@ -85,7 +85,7 @@ impl EventWatcher {
                     DispatchMessageA(&message);
                 }
             }
-            log::debug!("EventWatcher thread exiting");
+            log::info!("EventWatcher thread exiting");
         });
 
         let hwnd = rx.recv().unwrap();
@@ -99,7 +99,7 @@ impl EventWatcher {
 impl Drop for EventWatcher {
     fn drop(&mut self) {
         log::info!("Stopping EventWatcher");
-        unsafe { SendMessageW(self.hwnd, EXIT_LOOP, None, None) };
+        unsafe { check_error(|| SendMessageW(self.hwnd, EXIT_LOOP, None, None)).unwrap() };
         self.thread.take().unwrap().join().unwrap();
     }
 }
@@ -126,6 +126,7 @@ unsafe extern "system" fn wndproc(
                     .unwrap();
             }
             EXIT_LOOP => {
+                log::info!("Received EXIT_LOOP message");
                 PostQuitMessage(0);
             }
             WM_WTSSESSION_CHANGE => match wparam.0 as u32 {
