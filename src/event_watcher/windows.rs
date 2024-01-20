@@ -11,7 +11,7 @@ use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::RemoteDesktop::WTSRegisterSessionNotification;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcA, DispatchMessageA, GetMessageA, PostQuitMessage,
+    CreateWindowExW, DefWindowProcA, DispatchMessageW, GetMessageW, PostQuitMessage,
     RegisterClassW, RegisterWindowMessageW, SendMessageW, SetWindowLongPtrW, CW_USEDEFAULT,
     GWLP_USERDATA, MSG, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_DISPLAYCHANGE,
     WM_WTSSESSION_CHANGE, WNDCLASSW, WTS_SESSION_LOCK, WTS_SESSION_UNLOCK,
@@ -81,11 +81,11 @@ impl EventWatcher {
                 WTSRegisterSessionNotification(hwnd, 0).unwrap();
 
                 let mut message = MSG::default();
-                while GetMessageA(&mut message, hwnd, 0, 0).into() {
-                    DispatchMessageA(&message);
+                while GetMessageW(&mut message, None, 0, 0).into() {
+                    DispatchMessageW(&message);
                 }
             }
-            log::info!("EventWatcher thread exiting");
+            log::debug!("EventWatcher thread exiting");
         });
 
         let hwnd = rx.recv().unwrap();
@@ -126,7 +126,7 @@ unsafe extern "system" fn wndproc(
                     .unwrap();
             }
             EXIT_LOOP => {
-                log::info!("Received EXIT_LOOP message");
+                log::debug!("Received EXIT_LOOP message");
                 PostQuitMessage(0);
             }
             WM_WTSSESSION_CHANGE => match wparam.0 as u32 {
