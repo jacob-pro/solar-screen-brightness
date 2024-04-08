@@ -78,7 +78,7 @@ pub struct BrightnessValues {
 
 impl SsbConfig {
     pub fn load(path_override: Option<PathBuf>) -> anyhow::Result<Option<Self>> {
-        let path = path_override.unwrap_or_else(|| get_default_config_path());
+        let path = path_override.unwrap_or_else(get_default_config_path);
         if !path.exists() {
             return Ok(None);
         }
