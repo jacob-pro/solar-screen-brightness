@@ -1,6 +1,6 @@
 [package]
 name = "solar-screen-brightness"
-version = "2.3.0"
+version = "2.3.1"
 authors = ["Jacob Halsey <jacob@jhalsey.com>"]
 edition = "2021"
 build = "build.rs"
