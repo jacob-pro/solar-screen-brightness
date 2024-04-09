@@ -4,6 +4,7 @@ use windows::Win32::UI::WindowsAndMessaging::{SendMessageW, HWND_BROADCAST};
 
 const APP_ID: &str = "solar-screen-brightness";
 
+#[allow(dead_code)]
 pub struct SsbUniqueInstance(UniqueInstance);
 
 impl SsbUniqueInstance {

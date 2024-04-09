@@ -78,10 +78,7 @@ pub struct BrightnessValues {
 
 impl SsbConfig {
     pub fn load(path_override: Option<PathBuf>) -> anyhow::Result<Option<Self>> {
-        let path = match path_override {
-            None => get_default_config_path(),
-            Some(p) => p,
-        };
+        let path = path_override.unwrap_or_else(get_default_config_path);
         if !path.exists() {
             return Ok(None);
         }
@@ -100,7 +97,8 @@ impl SsbConfig {
     pub fn save(&self) -> anyhow::Result<()> {
         let path = get_default_config_path();
         let serialised = serde_json::to_string_pretty(&self).unwrap();
-        let mut temp_file = NamedTempFile::new()?;
+        let parent = path.parent().expect("config path must have parent");
+        let mut temp_file = NamedTempFile::new_in(parent)?;
         temp_file.write_all(serialised.as_bytes())?;
         temp_file.flush()?;
         temp_file.persist(&path)?;
