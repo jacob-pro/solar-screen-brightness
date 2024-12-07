@@ -8,6 +8,7 @@ mod status;
 use crate::common::APP_NAME;
 use crate::gui::app::SsbEguiApp;
 use crate::tray::read_icon;
+use egui_wgpu::wgpu::PowerPreference;
 use egui_winit::winit;
 use egui_winit::winit::event::{Event, WindowEvent};
 use egui_winit::winit::event_loop::{EventLoopProxy, EventLoopWindowTarget};
@@ -106,8 +107,11 @@ impl<F: Fn() -> SsbEguiApp> WgpuWinitApp<F> {
 
         window.set_ime_allowed(true);
 
-        let mut painter =
-            egui_wgpu::winit::Painter::new(egui_wgpu::WgpuConfiguration::default(), 1, None, false);
+        let wgpu_config = egui_wgpu::WgpuConfiguration {
+            power_preference: PowerPreference::LowPower,
+            ..Default::default()
+        };
+        let mut painter = egui_wgpu::winit::Painter::new(wgpu_config, 1, None, false);
 
         pollster::block_on(painter.set_window(Some(&window))).unwrap();
 

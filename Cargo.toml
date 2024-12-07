@@ -1,6 +1,6 @@
 [package]
 name = "solar-screen-brightness"
-version = "2.3.1"
+version = "2.3.2"
 authors = ["Jacob Halsey <jacob@jhalsey.com>"]
 edition = "2021"
 build = "build.rs"
@@ -16,7 +16,7 @@ path = "src/cli.rs"
 
 [dependencies]
 anyhow = "1.0.43"
-brightness = { version = "0.5.0", default_features = false }
+brightness = { version = "0.5.0", default-features = false }
 cfg-if = "1.0.0"
 chrono = "0.4"
 clap = { version = "4.3.11", features = ["derive"] }
